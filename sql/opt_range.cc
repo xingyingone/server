@@ -3445,7 +3445,7 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
         {
           rows= 0;
           table->reginfo.impossible_range= 1;
-          selectivity_for_column.add("selectivity_from_range", (uint)0);
+          selectivity_for_column.add("selectivity_from_range", rows);
           selectivity_for_column.add("cause", "impossible_range");
           goto free_alloc;
         }          
@@ -5819,7 +5819,7 @@ bool prepare_search_best_index_intersect(PARAM *param,
       selected_idx.add("index", key_info->name);
       print_keyparts(writer, key_info, (*scan_ptr)->used_key_parts);
       selected_idx.add("records", (*scan_ptr)->records)
-                  .add("filtered_records", (uint)0);
+                  .add("filtered_records", (*scan_ptr)->filtered_out);
     }
   }
 
@@ -6850,7 +6850,7 @@ static bool ror_intersect_add(ROR_INTERSECT_INFO *info,
     DBUG_PRINT("info", ("info->total_cost= %g", info->total_cost));
   }
   else
-    trace_costs->add("disk_sweep_cost", (uint)0);
+    trace_costs->add("disk_sweep_cost", static_cast<longlong>(0));
 
   DBUG_PRINT("info", ("New out_rows: %g", info->out_rows));
   DBUG_PRINT("info", ("New cost: %g, %scovering", info->total_cost,

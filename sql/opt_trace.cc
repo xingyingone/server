@@ -558,7 +558,7 @@ void add_table_scan_values_to_trace(Opt_trace_context* trace, JOIN_TAB *tab)
   Json_writer_object table_records(writer);
   table_records.add_table_name(tab);
   Json_writer_object table_rec(writer, "table_scan");
-  table_rec.add("rows", (longlong)tab->found_records)
+  table_rec.add("rows", tab->found_records)
            .add("cost", tab->read_time);
 }
 /*

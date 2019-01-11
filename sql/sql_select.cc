@@ -368,7 +368,7 @@ static void trace_table_dependencies(Opt_trace_context *trace,
     {
       if (map & (1ULL << j))
       {
-        trace_one_table.add("map_bit", j);
+        trace_one_table.add("map_bit", static_cast<longlong>(j));
         break;
       }
     }
@@ -379,7 +379,7 @@ static void trace_table_dependencies(Opt_trace_context *trace,
     for (uint j = 0; j < 64; j++)
     {
       if (join_tabs[i].dependent & (1ULL << j))
-        depends_on.add(j);
+        depends_on.add(static_cast<longlong>(j));
     }
   }
 }
@@ -5054,7 +5054,8 @@ make_join_statistics(JOIN *join, List<TABLE_LIST> &tables_list,
         s->read_time=1.0;
         s->worst_seeks=1.0;
         table_records.add_table_name(s)
-                     .add("rows", (uint)1).add("cost", (uint)1)
+                     .add("rows", s->found_records)
+                     .add("cost", s->read_time)
                      .add("table_type", s->type == JT_CONST ?
                                         "const" :
                                         "system");

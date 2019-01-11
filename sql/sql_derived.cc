@@ -779,8 +779,7 @@ bool mysql_derived_prepare(THD *thd, LEX *lex, TABLE_LIST *derived)
     Json_writer_object trace_derived(writer, derived->is_derived() ?
                                        "derived" : "view");
     trace_derived.add("table", derived->alias.str ? derived->alias.str : "<NULL>")
-                 .add("select_id",
-                      derived->get_unit()->first_select()->select_number);
+            .add_select_number(derived->get_unit()->first_select()->select_number);
     if (derived->is_materialized_derived())
       trace_derived.add("materialized", true);
     if (derived->is_merged_derived())

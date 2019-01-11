@@ -268,12 +268,6 @@ public:
     context.add_bool(value);
     return *this;
   }
-  Json_writer_object& add(const char *name, uint value)
-  {
-    add_member(name);
-    context.add_ll(static_cast<longlong>(value));
-    return *this;
-  }
   Json_writer_object& add(const char *name, ulonglong value)
   {
     add_member(name);
@@ -346,7 +340,7 @@ public:
     if (unlikely(select_number >= INT_MAX))
       context.add_str("fake");
     else
-      context.add_ll(select_number);
+      context.add_ll(static_cast<longlong>(select_number));
     return *this;
   }
   void end()
@@ -378,11 +372,6 @@ public:
     context.add_bool(value);
     return *this;
   }
-  Json_writer_array& add(uint value)
-  {
-    context.add_ll(static_cast<longlong>(value));
-    return *this;
-  }
   Json_writer_array& add(ulonglong value)
   {
     context.add_ll(static_cast<longlong>(value));
@@ -400,7 +389,7 @@ public:
   }
   Json_writer_array& add(size_t value)
   {
-    context.add_ll(value);
+    context.add_ll(static_cast<longlong>(value));
     return *this;
   }
   Json_writer_array& add(const char *value)

@@ -197,5 +197,5 @@ int fill_optimizer_trace_info(THD *thd, TABLE_LIST *tables, Item *);
                             select_number, from, to)             \
   Json_writer_object object_level0(writer);                         \
   Json_writer_object object_level1(writer, "transformation");       \
-  object_level1.add("select#", select_number).add("from", from).add("to", to);
+  object_level1.add_select_number(select_number).add("from", from).add("to", to);
 #endif
