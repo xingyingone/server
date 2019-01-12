@@ -60,8 +60,14 @@ bool empty()
 
 bool is_started()
 {
-  return current_trace;
+  return current_trace && is_enabled();
 }
+
+bool disable_tracing_if_required();
+
+bool enable_tracing_if_required();
+
+bool is_enabled();
 
 void missing_privilege();
 

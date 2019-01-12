@@ -348,12 +348,14 @@ class Opt_trace_stmt {
     ctx= ctx_arg;
     current_json= new Json_writer();
     missing_priv= false;
+    I_S_disabled= 0;
   }
   ~Opt_trace_stmt()
   {
     delete current_json;
     missing_priv= false;
     ctx= NULL;
+    I_S_disabled= 0;
   }
   void set_query(const char *query_ptr, size_t length, const CHARSET_INFO *charset);
   void open_struct(const char *key, char opening_bracket);
@@ -362,11 +364,15 @@ class Opt_trace_stmt {
   void add(const char *key, char *opening_bracket, size_t val_length);
   Json_writer* get_current_json(){return current_json;}
   void missing_privilege();
+  void disable_tracing_for_children();
+  void enable_tracing_for_children();
+  bool is_enabled();
 private:
   Opt_trace_context *ctx;
   String query;  // store the query sent by the user
   Json_writer *current_json; // stores the trace
   bool missing_priv;  ///< whether user lacks privilege to see this trace
+  uint I_S_disabled;
 };
 
 void Opt_trace_stmt::set_query(const char *query_ptr, size_t length, const CHARSET_INFO *charset)
@@ -376,7 +382,7 @@ void Opt_trace_stmt::set_query(const char *query_ptr, size_t length, const CHARS
 
 Json_writer* Opt_trace_context::get_current_json()
 {
-  if (!current_trace)
+  if (!is_started())
     return NULL;
   return current_trace->get_current_json();
 }
@@ -385,6 +391,33 @@ void Opt_trace_context::missing_privilege()
 {
   if (current_trace)
     current_trace->missing_privilege();
+}
+
+bool Opt_trace_context::disable_tracing_if_required()
+{
+  if (current_trace)
+  {
+    current_trace->disable_tracing_for_children();
+    return true;
+  }
+  return false;
+}
+
+bool Opt_trace_context::enable_tracing_if_required()
+{
+  if (current_trace)
+  {
+    current_trace->enable_tracing_for_children();
+    return true;
+  }
+  return false;
+}
+
+bool Opt_trace_context::is_enabled()
+{
+  if (current_trace)
+    return current_trace->is_enabled();
+  return false;
 }
 
 Opt_trace_context::Opt_trace_context()
@@ -474,7 +507,7 @@ Opt_trace_start::Opt_trace_start(THD *thd, TABLE_LIST *tbl,
       !list_has_optimizer_trace_table(tbl) &&
       !sets_var_optimizer_trace(sql_command, set_vars) &&
       !thd->system_thread &&
-      !ctx->is_started())
+      !ctx->disable_tracing_if_required())
   {
     ctx->start(thd, tbl, sql_command, query, query_length, query_charset);
     ctx->set_query(query, query_length, query_charset);
@@ -486,8 +519,14 @@ Opt_trace_start::Opt_trace_start(THD *thd, TABLE_LIST *tbl,
 Opt_trace_start::~Opt_trace_start()
 {
   if (traceable)
+  {
     ctx->end();
-  traceable= FALSE;
+    traceable= FALSE;
+  }
+  else
+  {
+    ctx->enable_tracing_if_required();
+  }
 }
 
 void Opt_trace_stmt::fill_info(Opt_trace_info* info)
@@ -514,6 +553,22 @@ void Opt_trace_stmt::fill_info(Opt_trace_info* info)
 void Opt_trace_stmt::missing_privilege()
 {
   missing_priv= true;
+}
+
+void Opt_trace_stmt::disable_tracing_for_children()
+{
+  ++I_S_disabled;
+}
+
+void Opt_trace_stmt::enable_tracing_for_children()
+{
+  if (I_S_disabled)
+    --I_S_disabled;
+}
+
+bool Opt_trace_stmt::is_enabled()
+{
+  return I_S_disabled == 0;
 }
 
 /*
