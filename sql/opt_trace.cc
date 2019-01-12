@@ -520,7 +520,7 @@ void Opt_trace_stmt::missing_privilege()
   Prefer this when you are iterating over JOIN_TABs
 */
 
-void Json_writer::add_table_name(JOIN_TAB *tab)
+void Json_writer::add_table_name(const JOIN_TAB *tab)
 {
   if (tab != NULL)
   {

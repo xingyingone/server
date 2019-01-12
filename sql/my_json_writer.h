@@ -116,7 +116,7 @@ public:
   void add_str(const char* val, size_t num_bytes);
   void add_str(const String &str);
   void add_str(Item *item);
-  void add_table_name(JOIN_TAB *tab);
+  void add_table_name(const JOIN_TAB *tab);
 
   void add_ll(longlong val);
   void add_size(longlong val);
@@ -219,7 +219,7 @@ class Json_value_context
     if (writer)
       writer->add_null();
   }
-  void add_table_name(JOIN_TAB *tab)
+  void add_table_name(const JOIN_TAB *tab)
   {
     if (writer)
       writer->add_table_name(tab);
@@ -328,7 +328,7 @@ public:
     context.add_null();
     return *this;
   }
-  Json_writer_object& add_table_name(JOIN_TAB *tab)
+  Json_writer_object& add_table_name(const JOIN_TAB *tab)
   {
     add_member("table");
     context.add_table_name(tab);
@@ -422,7 +422,7 @@ public:
     context.add_null();
     return *this;
   }
-  Json_writer_array& add_table_name(JOIN_TAB *tab)
+  Json_writer_array& add_table_name(const JOIN_TAB *tab)
   {
     context.add_table_name(tab);
     return *this;
