@@ -286,12 +286,14 @@ public:
     context.add_double(value);
     return *this;
   }
+  #ifndef _WIN64
   Json_writer_object& add(const char *name, size_t value)
   {
     add_member(name);
     context.add_ll(static_cast<longlong>(value));
     return *this;
   }
+  #endif
   Json_writer_object& add(const char *name, const char *value)
   {
     add_member(name);
@@ -302,12 +304,6 @@ public:
   {
     add_member(name);
     context.add_str(value, num_bytes);
-    return *this;
-  }
-  Json_writer_object& add(const char *name, const String &value)
-  {
-    add_member(name);
-    context.add_str(value);
     return *this;
   }
   Json_writer_object& add(const char *name, LEX_CSTRING value)
@@ -387,11 +383,13 @@ public:
     context.add_double(value);
     return *this;
   }
+  #ifndef _WIN64
   Json_writer_array& add(size_t value)
   {
     context.add_ll(static_cast<longlong>(value));
     return *this;
   }
+  #endif
   Json_writer_array& add(const char *value)
   {
     context.add_str(value);
@@ -400,11 +398,6 @@ public:
   Json_writer_array& add(const char *value, size_t num_bytes)
   {
     context.add_str(value, num_bytes);
-    return *this;
-  }
-  Json_writer_array& add(const String &value)
-  {
-    context.add_str(value);
     return *this;
   }
   Json_writer_array& add(LEX_CSTRING value)

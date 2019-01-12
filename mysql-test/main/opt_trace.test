@@ -228,3 +228,36 @@ set @@optimizer_use_condition_selectivity=@save_optimizer_use_condition_selectiv
 set @@use_stat_tables= @save_use_stat_tables;
 drop table t0,t1;
 set optimizer_trace="enabled=off";
+
+--echo #
+--echo # Tests added to show that sub-statements are not traced
+--echo #
+
+create table t1(a int);
+insert into t1 values (1),(2),(3),(4);
+create table t2(a int);
+insert into t2 values (1),(2),(3),(4);
+delimiter |;
+create function f1(a int) returns int
+begin
+  declare a int default 0;
+  set a= a+ (select count(*) from t2);
+  return a;
+end|
+
+create function f2(a int) returns int
+begin
+  declare a int default 0;
+  select count(*) from t2 into a;
+  return a;
+end|
+
+delimiter ;|
+set optimizer_trace='enabled=on';
+select f1(a) from t1;
+select * from INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+select f2(a) from t1;
+select * from INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+drop table t1,t2;
+drop function f1;
+drop function f2;

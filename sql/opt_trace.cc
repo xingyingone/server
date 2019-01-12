@@ -125,7 +125,7 @@ void opt_trace_print_expanded_query(THD *thd, SELECT_LEX *select_lex,
     The output is not very pretty lots of back-ticks, the output
     is as the one in explain extended , lets try to improved it here.
   */
-  writer->add("expanded_query", str);
+  writer->add("expanded_query", str.c_ptr_safe(), str.length());
 }
 
 void opt_trace_disable_if_no_security_context_access(THD *thd)

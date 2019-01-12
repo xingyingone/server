@@ -15813,9 +15813,7 @@ static void append_range_all_keyparts(Json_writer_array *range_trace,
                                 keypart_range->next_key_part, key_parts);
     }
     else
-    {
-      range_trace->add(*range_so_far);
-    }
+      range_trace->add(range_so_far->c_ptr_safe(), range_so_far->length());
     keypart_range= keypart_range->next;
     range_so_far->length(save_range_so_far_length);
   }
