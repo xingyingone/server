@@ -5041,6 +5041,7 @@ make_join_statistics(JOIN *join, List<TABLE_LIST> &tables_list,
     Another way would be to enclose them in a scope {};
   */
   {
+    Json_writer_object rows_estimation_wrapper(writer);
     Json_writer_array rows_estimation(writer, "rows_estimation");
     for (s=stat ; s < stat_end ; s++)
     {

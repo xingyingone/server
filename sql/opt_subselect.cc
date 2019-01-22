@@ -2387,6 +2387,7 @@ bool optimize_semijoin_nests(JOIN *join, table_map all_table_map)
   Json_writer* writer= trace->get_current_json();
   List_iterator<TABLE_LIST> sj_list_it(join->select_lex->sj_nests);
   TABLE_LIST *sj_nest;
+  Json_writer_object wrapper(writer);
   Json_writer_object trace_semijoin_nest(writer,
                               "execution_plan_for_potential_materialization");
   Json_writer_array trace_steps_array(writer, "steps");
