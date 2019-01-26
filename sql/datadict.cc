@@ -58,10 +58,11 @@ static int read_string(File file, uchar**to, size_t length)
 */
 
 Table_type dd_frm_type(THD *thd, char *path, LEX_CSTRING *engine_name,
+                       LEX_CUSTRING *table_version,
                        bool *is_sequence)
 {
   File file;
-  uchar header[40];     //"TYPE=VIEW\n" it is 10 characters
+  uchar header[64+ MY_UUID_SIZE + 2];     // Header and uuid
   size_t error;
   Table_type type= TABLE_TYPE_UNKNOWN;
   uchar dbt;
@@ -88,8 +89,13 @@ Table_type dd_frm_type(THD *thd, char *path, LEX_CSTRING *engine_name,
     engine_name->length= 0;
     ((char*) (engine_name->str))[0]= 0;
   }
-
-  if (unlikely((error= mysql_file_read(file, (uchar*) header, sizeof(header), MYF(MY_NABP)))))
+  if (table_version)
+  {
+    table_version->length= 0;
+    table_version->str= 0;                      // Allocated if needed
+  }
+  if (unlikely((error= mysql_file_read(file, (uchar*) header, sizeof(header),
+                                       MYF(MY_NABP)))))
     goto err;
 
   if (unlikely((!strncmp((char*) header, "TYPE=VIEW\n", 10))))
@@ -111,6 +117,14 @@ Table_type dd_frm_type(THD *thd, char *path, LEX_CSTRING *engine_name,
   {
     DBUG_PRINT("info", ("Sequence found"));
     *is_sequence= 1;
+  }
+
+  if (table_version)
+  {
+    /* Read the table version (if it is a 'new' frm file) */
+    if (header[64] == EXTRA2_TABLEDEF_VERSION && header[65] == MY_UUID_SIZE)
+      if ((table_version->str= (uchar*) thd->memdup(header + 66, MY_UUID_SIZE)))
+        table_version->length= MY_UUID_SIZE;
   }
 
   /* cannot use ha_resolve_by_legacy_type without a THD */

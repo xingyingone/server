@@ -1030,6 +1030,8 @@ typedef bool (stat_print_fn)(THD *thd, const char *type, size_t type_len,
 enum ha_stat_type { HA_ENGINE_STATUS, HA_ENGINE_LOGS, HA_ENGINE_MUTEX };
 extern st_plugin_int *hton2plugin[MAX_HA];
 
+#define view_pseudo_hton ((handlerton *)1)
+
 /* Transaction log maintains type definitions */
 enum log_status
 {
@@ -2042,9 +2044,11 @@ struct Table_scope_and_contents_source_pod_st // For trivial members
 {
   CHARSET_INFO *table_charset;
   LEX_CUSTRING tabledef_version;
+  LEX_CUSTRING org_tabledef_version;            /* version of dropped table */
   LEX_CSTRING connect_string;
   LEX_CSTRING comment;
   LEX_CSTRING alias;
+  LEX_CSTRING org_storage_engine_name, new_storage_engine_name;
   const char *password, *tablespace;
   const char *data_file_name, *index_file_name;
   ulonglong max_rows,min_rows;
@@ -4696,7 +4700,7 @@ public:
   { DBUG_ASSERT(ht); return partition_ht()->flags & HTON_NATIVE_SYS_VERSIONING; }
   virtual void update_partition(uint	part_id)
   {}
-
+  void log_not_redoable_operation(const char *operation);
 protected:
   Handler_share *get_ha_share_ptr();
   void set_ha_share_ptr(Handler_share *arg_ha_share);
@@ -4739,7 +4743,8 @@ static inline enum legacy_db_type ha_legacy_type(const handlerton *db_type)
 
 static inline const char *ha_resolve_storage_engine_name(const handlerton *db_type)
 {
-  return db_type == NULL ? "UNKNOWN" : hton_name(db_type)->str;
+  return (db_type == NULL ? "UNKNOWN" :
+          db_type == view_pseudo_hton ? "VIEW" : hton_name(db_type)->str);
 }
 
 static inline bool ha_check_storage_engine_flag(const handlerton *db_type, uint32 flag)
@@ -4752,8 +4757,6 @@ static inline bool ha_storage_engine_is_enabled(const handlerton *db_type)
   return (db_type && db_type->create) ?
          (db_type->state == SHOW_OPTION_YES) : FALSE;
 }
-
-#define view_pseudo_hton ((handlerton *)1)
 
 /* basic stuff */
 int ha_init_errors(void);
@@ -4777,6 +4780,7 @@ int ha_delete_table(THD *thd, handlerton *db_type, const char *path,
                     const LEX_CSTRING *db, const LEX_CSTRING *alias, bool generate_warning);
 void ha_prepare_for_backup();
 void ha_end_backup();
+
 
 /* statistics and info */
 bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat);
@@ -4814,7 +4818,9 @@ public:
 int ha_discover_table(THD *thd, TABLE_SHARE *share);
 int ha_discover_table_names(THD *thd, LEX_CSTRING *db, MY_DIR *dirp,
                             Discovered_table_list *result, bool reusable);
-bool ha_table_exists(THD *thd, const LEX_CSTRING *db, const LEX_CSTRING *table_name,
+bool ha_table_exists(THD *thd, const LEX_CSTRING *db,
+                     const LEX_CSTRING *table_name,
+                     LEX_CUSTRING *table_version= 0,
                      handlerton **hton= 0, bool *is_sequence= 0);
 #endif
 

@@ -1,0 +1,54 @@
+connect  con1,localhost,root,,;
+BACKUP STAGE START;
+connection default;
+#
+# Testing backup ddl log for partitioned tables
+#
+CREATE TABLE t10(a INT, b INT) ENGINE ARIA TRANSACTIONAL = 1 PAGE_CHECKSUM = 1;
+INSERT INTO t10 VALUES (5, 5), (15, 15), (25, 25);
+ALTER TABLE t10 PARTITION BY RANGE( a ) (
+PARTITION p0 VALUES LESS THAN (10),
+PARTITION p1 VALUES LESS THAN (20),
+PARTITION p2 VALUES LESS THAN (30)
+);
+ALTER TABLE t10 DROP PARTITION p0;
+ALTER TABLE t10 ADD PARTITION (PARTITION p3 VALUES LESS THAN (40));
+ALTER TABLE t10
+REORGANIZE PARTITION p3 INTO (
+PARTITION n0 VALUES LESS THAN (35),
+PARTITION n1 VALUES LESS THAN (45)
+);
+ALTER TABLE t10 PARTITION BY KEY(a) PARTITIONS 2;
+ALTER TABLE t10 PARTITION BY HASH(a) PARTITIONS 8;
+ALTER TABLE t10 COALESCE PARTITION 4;
+ALTER TABLE t10 ADD COLUMN d INT;
+ALTER TABLE t10
+PARTITION BY RANGE (b)
+SUBPARTITION BY KEY (a)
+SUBPARTITIONS 2 (
+PARTITION p0 VALUES LESS THAN (10),
+PARTITION p1 VALUES LESS THAN (20),
+PARTITION p2 VALUES LESS THAN (30),
+PARTITION p3 VALUES LESS THAN (MAXVALUE)
+);
+ALTER TABLE t10 REMOVE PARTITIONING;
+DROP TABLE t10;
+#
+# Reading backup ddl log file
+#
+CREATE,Aria,test,t10,id: 1,,,,
+ALTER,Aria,test,t10,id: 1,partition,test,t10,id: 2
+ALTER,partition,test,t10,id: 2,partition,test,t10,id: 3
+ALTER,partition,test,t10,id: 3,partition,test,t10,id: 4
+ALTER,partition,test,t10,id: 4,partition,test,t10,id: 5
+ALTER,partition,test,t10,id: 5,partition,test,t10,id: 6
+ALTER,partition,test,t10,id: 6,partition,test,t10,id: 7
+ALTER,partition,test,t10,id: 7,partition,test,t10,id: 8
+ALTER,partition,test,t10,id: 8,partition,test,t10,id: 9
+ALTER,partition,test,t10,id: 9,partition,test,t10,id: 10
+ALTER,partition,test,t10,id: 10,Aria,test,t10,id: 11
+DROP,Aria,test,t10,id: 11,,,,
+#
+# Cleanup
+#
+disconnect con1;
