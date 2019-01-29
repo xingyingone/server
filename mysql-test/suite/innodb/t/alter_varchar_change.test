@@ -236,11 +236,10 @@ CREATE TABLE t1(f1 INT NOT NULL,
 		INDEX idx1(f1))ENGINE=InnoDB;
 
 CALL get_table_id("test/t1", @tbl_id);
-ALTER TABLE t1 MODIFY f2 VARCHAR(50), DROP INDEX idx1;
+ALTER TABLE t1 MODIFY f2 VARCHAR(50);
 CALL get_table_id("test/t1", @tbl1_id);
 
 SELECT @tbl1_id = @tbl_id;
-SELECT @idx1_id = @idx_id;
 SHOW CREATE TABLE t1;
 DROP TABLE t1;
 
@@ -254,7 +253,6 @@ ALTER TABLE t1 MODIFY f2 VARCHAR(5), DROP INDEX idx1;
 CALL get_table_id("test/t1", @tbl1_id);
 
 SELECT @tbl1_id = @tbl_id;
-SELECT @idx1_id = @idx_id;
 SHOW CREATE TABLE t1;
 DROP TABLE t1;
 

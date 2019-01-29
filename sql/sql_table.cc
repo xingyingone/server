@@ -6708,7 +6708,7 @@ static bool fill_alter_inplace_info(THD *thd,
       }
 
       if (key_part->length == old_field_len &&
-          key_part->length <= new_part->length &&
+          key_part->length < new_part->length &&
 	  (key_part->field->is_equal((Create_field*) new_field)
            == IS_EQUAL_PACK_LENGTH))
       {
