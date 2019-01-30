@@ -46,11 +46,6 @@ Opt_trace_stmt* get_top_trace()
   This returns the current trace, to which we are still writing and has not been finished
 */
 
-Opt_trace_stmt* get_current_trace()
-{
-  return current_trace;
-}
-
 Json_writer* get_current_json();
 
 bool empty()

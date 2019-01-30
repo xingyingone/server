@@ -110,7 +110,7 @@ void opt_trace_print_expanded_query(THD *thd, SELECT_LEX *select_lex,
 {
   Opt_trace_context *const trace = &thd->opt_trace;
 
-  if (!trace->get_current_trace())
+  if (!trace->is_started())
     return;
   char buff[1024];
   String str(buff, sizeof(buff), system_charset_info);

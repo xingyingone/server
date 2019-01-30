@@ -4728,7 +4728,7 @@ make_join_statistics(JOIN *join, List<TABLE_LIST> &tables_list,
     }
   }
 
-  if (trace->get_current_trace())
+  if (trace->is_started())
     trace_table_dependencies(trace, stat, join->table_count);
 
   if (join->conds || outer_join)
@@ -4749,7 +4749,7 @@ make_join_statistics(JOIN *join, List<TABLE_LIST> &tables_list,
                                skip_unprefixed_keyparts))
       goto error;
     DBUG_EXECUTE("opt", print_keyuse_array(keyuse_array););
-    if (trace->get_current_trace())
+    if (trace->is_started())
       print_keyuse_array_for_trace(thd, keyuse_array);
   }
 
@@ -8108,7 +8108,7 @@ optimize_straight_join(JOIN *join, table_map join_tables)
   for (JOIN_TAB **pos= join->best_ref + idx ; (s= *pos) ; pos++)
   {
     Json_writer_object trace_one_table(writer);
-    if (unlikely(trace->get_current_trace()))
+    if (unlikely(trace->is_started()))
     {
       trace_plan_prefix(join, idx, join_tables);
       trace_one_table.add_table_name(s);
@@ -9035,7 +9035,7 @@ best_extension_by_limited_search(JOIN      *join,
       POSITION *position= join->positions + idx;
 
       Json_writer_object trace_one_table(writer);
-      if (unlikely(trace->get_current_trace()))
+      if (unlikely(trace->is_started()))
       {
         trace_plan_prefix(join, idx, remaining_tables);
         trace_one_table.add_table_name(s);

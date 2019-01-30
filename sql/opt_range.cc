@@ -2870,7 +2870,7 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
                                              head->stat_records());
       Json_writer_object grp_summary(writer, "best_group_range_summary");
 
-      if (unlikely(trace->get_current_trace()))
+      if (unlikely(trace->is_started()))
         group_trp->trace_basic_info(&param, &grp_summary);
 
       if (group_trp->read_cost < best_read_time)
@@ -2996,7 +2996,7 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
     possible_keys= param.possible_keys;
 
   free_mem:
-    if (unlikely(quick && best_trp))
+    if (unlikely(quick && best_trp && trace->is_started()))
     {
       Json_writer_object trace_range_summary(writer,
                                            "chosen_range_access_summary");
@@ -5237,7 +5237,7 @@ skip_to_ror_scan:
        ptree++, cur_child++, cur_roru_plan++)
   {
     Json_writer_object trp_info(writer);
-    if (unlikely(trace->get_current_trace()))
+    if (unlikely(trace->is_started()))
       (*cur_child)->trace_basic_info(param, &trp_info);
     /*
       Assume the best ROR scan is the one that has cheapest full-row-retrieval
@@ -13537,7 +13537,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
                                                    cur_index_tree, TRUE,
                                                    &mrr_flags, &mrr_bufsize,
                                                    &dummy_cost);
-      if (unlikely(cur_index_tree && trace->get_current_trace()))
+      if (unlikely(cur_index_tree && trace->is_started()))
       {
         Json_writer_array trace_range(writer, "ranges");
 
