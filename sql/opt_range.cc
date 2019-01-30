@@ -5802,11 +5802,14 @@ bool prepare_search_best_index_intersect(PARAM *param,
       ha_rows records= records_in_index_intersect_extension(&curr, *scan_ptr);
       (*scan_ptr)->filtered_out= records >= scan_records ?
                                    0 : scan_records-records;
-      Json_writer_object selected_idx(writer);
-      selected_idx.add("index", key_info->name);
-      print_keyparts(writer, key_info, (*scan_ptr)->used_key_parts);
-      selected_idx.add("records", (*scan_ptr)->records)
-                  .add("filtered_records", (*scan_ptr)->filtered_out);
+      if (trace->is_started())
+      {
+        Json_writer_object selected_idx(writer);
+        selected_idx.add("index", key_info->name);
+        print_keyparts(writer, key_info, (*scan_ptr)->used_key_parts);
+        selected_idx.add("records", (*scan_ptr)->records)
+                    .add("filtered_records", (*scan_ptr)->filtered_out);
+      }
     }
   } 
   else
@@ -5815,11 +5818,14 @@ bool prepare_search_best_index_intersect(PARAM *param,
     {
       KEY *key_info= (*scan_ptr)->key_info;
       (*scan_ptr)->filtered_out= 0;
-      Json_writer_object selected_idx(writer);
-      selected_idx.add("index", key_info->name);
-      print_keyparts(writer, key_info, (*scan_ptr)->used_key_parts);
-      selected_idx.add("records", (*scan_ptr)->records)
-                  .add("filtered_records", (*scan_ptr)->filtered_out);
+      if (trace->is_started())
+      {
+        Json_writer_object selected_idx(writer);
+        selected_idx.add("index", key_info->name);
+        print_keyparts(writer, key_info, (*scan_ptr)->used_key_parts);
+        selected_idx.add("records", (*scan_ptr)->records)
+                    .add("filtered_records", (*scan_ptr)->filtered_out);
+      }
     }
   }
 
@@ -7393,8 +7399,9 @@ static TRP_RANGE *get_key_scans_params(PARAM *param, SEL_TREE *tree,
         index_scan->sel_arg= key;
         *tree->index_scans_end++= index_scan;
 
-        append_range_all_keyparts(&trace_range, NULL, &range_info, key,
-                                  key_part);
+        if (trace->is_started())
+          append_range_all_keyparts(&trace_range, NULL, &range_info, key,
+                                    key_part);
         trace_range.end();
 
         trace_idx.add("rowid_ordered", param->is_ror_scan)
@@ -13545,8 +13552,9 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
 
         String range_info;
         range_info.set_charset(system_charset_info);
-        append_range_all_keyparts(&trace_range, NULL, &range_info,
-                                  cur_index_tree, key_part);
+        if (trace->is_started())
+          append_range_all_keyparts(&trace_range, NULL, &range_info,
+                                    cur_index_tree, key_part);
       }
     }
     cost_group_min_max(table, cur_index_info, cur_used_key_parts,
