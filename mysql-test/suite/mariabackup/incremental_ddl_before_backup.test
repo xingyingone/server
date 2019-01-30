@@ -4,7 +4,6 @@ call mtr.add_suppression("InnoDB: New log files created");
 
 let $basedir=$MYSQLTEST_VARDIR/tmp/backup;
 let $incremental_dir=$MYSQLTEST_VARDIR/tmp/backup_inc1;
-let $backuplog=$MYSQLTEST_VARDIR/tmp/backup.log;
 
 CREATE TABLE t1(i INT) ENGINE INNODB;
 CREATE TABLE t2(i INT PRIMARY KEY) ENGINE INNODB;
@@ -31,14 +30,13 @@ rename table t4 to t7;
 select count(*) from t7;
 
 --echo # XTRABACKUP INCREMENTAL
-exec $XTRABACKUP --defaults-file=$MYSQLTEST_VARDIR/my.cnf  --backup --target-dir=$incremental_dir --incremental-basedir=$basedir
+exec $XTRABACKUP --defaults-file=$MYSQLTEST_VARDIR/my.cnf  --backup --target-dir=$incremental_dir --incremental-basedir=$basedir;
 
 --echo # XTRABACKUP PREPARE
 exec $XTRABACKUP --apply-log-only --prepare --target-dir=$basedir;
 
 --echo # XTRABACKUP INCREMENTAL PREPARE
---error 0, 1, 134
-exec $XTRABACKUP --prepare --target-dir=$basedir --incremental-dir=$incremental_dir --dbug="+d,ib_log" 2> $backuplog;
+exec $XTRABACKUP --prepare --target-dir=$basedir --incremental-dir=$incremental_dir;
 
 let $targetdir=$basedir;
 -- source include/restart_and_restore.inc
@@ -50,4 +48,3 @@ drop table t1, t2, t7, t3;
 # Cleanup
 rmdir $basedir;
 rmdir $incremental_dir;
-remove_file $backuplog;

@@ -20,6 +20,7 @@ select count(*) from t7;
 count(*)
 7168
 # XTRABACKUP INCREMENTAL
+# XTRABACKUP PREPARE
 # XTRABACKUP INCREMENTAL PREPARE
 # shutdown server
 # remove datadir
