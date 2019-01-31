@@ -4186,7 +4186,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 
     if (is_hash_field_needed)
     {
-      Create_field *hash_fld= add_hash_field(thd, &alter_info->create_list,
+        Create_field *hash_fld= add_hash_field(thd, &alter_info->create_list,
                        create_info->default_table_charset,
                        key_info);
       hash_fld->offset= record_offset;

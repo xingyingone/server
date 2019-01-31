@@ -1,4 +1,4 @@
-#In this test case we will check what will happen in the case of hash collusion
+#In this test case we will check what will happen in the case of hash collision
 SET debug_dbug="d,same_long_unique_hash";
 create table t1(a blob unique);
 insert into t1 values('xyz');

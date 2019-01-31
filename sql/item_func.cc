@@ -1718,7 +1718,7 @@ bool Item_func_mod::fix_length_and_dec()
   DBUG_RETURN(FALSE);
 }
 
-inline void calc_hash_for_unique(ulong &nr1, ulong &nr2, String *str)
+static void calc_hash_for_unique(ulong &nr1, ulong &nr2, String *str)
 {
   CHARSET_INFO *cs;
   uchar l[4];
@@ -1753,7 +1753,6 @@ longlong  Item_func_hash::val_int()
 
 bool Item_func_hash::fix_length_and_dec()
 {
-  maybe_null= 1;
   decimals= 0;
   max_length= 8;
   return false;

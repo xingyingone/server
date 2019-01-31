@@ -1309,7 +1309,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
   uint interval_count, interval_parts, read_length, int_length;
   uint db_create_options, keys, key_parts, n_length;
   uint com_length, null_bit_pos, UNINIT_VAR(mysql57_vcol_null_bit_pos), bitmap_count;
-  uint i;
+  uint i, hash_fields= 0;
   bool use_hash, mysql57_null_bits= 0;
   char *keynames, *names, *comment_pos;
   const uchar *forminfo, *extra2;
@@ -1746,6 +1746,10 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
                          share, len, &first_keyinfo, keynames))
       goto err;
   }
+  keyinfo= share->key_info;
+  for (uint i= 0; i < share->keys; i++, keyinfo++)
+    if(key_info->algorithm == HA_KEY_ALG_LONG_HASH)
+      hash_fields++;
 
   share->key_block_size= uint2korr(frm_image+62);
 
@@ -1787,6 +1791,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
   DBUG_PRINT("info",("i_count: %d  i_parts: %d  index: %d  n_length: %d  int_length: %d  com_length: %d  vcol_screen_length: %d", interval_count,interval_parts, keys,n_length,int_length, com_length, vcol_screen_length));
 
   if (!multi_alloc_root(&share->mem_root,
+                        //&share->field, (uint)(share->fields+hash_fields+1)*sizeof(Field*),
                         &share->field, (uint)(share->fields+1)*sizeof(Field*),
                         &share->intervals, (uint)interval_count*sizeof(TYPELIB),
                         &share->check_constraints, (uint) share->table_check_constraints * sizeof(Virtual_column_info*),
@@ -2221,6 +2226,16 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
         share->default_fields++;
     }
   }
+
+/*   for (uint i=0; i < hash_fields; i++, field_ptr++)
+  {
+    LEX_CSTRING comment;
+    LEX_CSTRING name;
+	comment.str= (char*) "";
+	comment.length=0;
+    field_ptr->length= ;
+
+  }*/
   *field_ptr=0;					// End marker
   /* Sanity checks: */
   DBUG_ASSERT(share->fields>=share->stored_fields);

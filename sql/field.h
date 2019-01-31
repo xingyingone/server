@@ -687,7 +687,7 @@ public:
     GEOM_MULTIPOINT = 4, GEOM_MULTILINESTRING = 5, GEOM_MULTIPOLYGON = 6,
     GEOM_GEOMETRYCOLLECTION = 7
   };
-  enum imagetype { itRAW, itMBR, itHASH};
+  enum imagetype { itRAW, itMBR};
 
   utype		unireg_check;
   uint32	field_length;		// Length of field

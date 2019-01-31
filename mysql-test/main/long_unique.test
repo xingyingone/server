@@ -94,7 +94,6 @@ show keys from t1;
 alter table t1 add column a blob unique;
 show create table t1;
 --echo # try to change the blob unique name;
---echo #this will change index to b tree;
 alter table t1 change column a aa blob ;
 show create table t1;
 show keys from t1;

@@ -6275,20 +6275,19 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
   int result, error= 0;
   KEY *key_info= table->key_info + key_no;
   hash_field= key_info->key_part->field;
-  DBUG_ASSERT((table->key_info[key_no].flags & HA_NULL_PART_KEY &&
-      table->key_info[key_no].key_length == HA_HASH_KEY_LENGTH_WITH_NULL)
-    || table->key_info[key_no].key_length == HA_HASH_KEY_LENGTH_WITHOUT_NULL);
+  DBUG_ASSERT((key_info->flags & HA_NULL_PART_KEY &&
+      key_info->key_length == HA_HASH_KEY_LENGTH_WITH_NULL)
+    || key_info->key_length == HA_HASH_KEY_LENGTH_WITHOUT_NULL);
   uchar ptr[HA_HASH_KEY_LENGTH_WITH_NULL];
 
   if (hash_field->is_real_null())
     return 0;
 
-  key_copy(ptr, new_rec, &table->key_info[key_no],
-              table->key_info[key_no].key_length, false);
+  key_copy(ptr, new_rec, key_info, key_info->key_length, false);
 
   if (!table->check_unique_buf)
     table->check_unique_buf= (uchar *)alloc_root(&table->mem_root,
-                                    table->s->reclength*sizeof(uchar));
+                                    table->s->reclength);
 
   result= h->ha_index_init(key_no, 0);
   if (result)
@@ -6306,7 +6305,7 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
     {
       long diff= table->check_unique_buf - new_rec;
       is_same= true;
-      for (uint j=0; j < arg_count; j++)
+      for (uint j=0; is_same && j < arg_count; j++)
       {
         DBUG_ASSERT(arguments[j]->type() == Item::FIELD_ITEM ||
                     // this one for left(fld_name,length)
@@ -6330,7 +6329,7 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
       }
     }
     while (!is_same && !(result= table->file->ha_index_next_same(table->check_unique_buf,
-                         ptr, table->key_info[key_no].key_length)));
+                         ptr, key_info->key_length)));
     if (is_same)
     {
       table->dupp_hash_key= key_no;
@@ -6350,6 +6349,7 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
   h->ha_index_end();
   return error;
 }
+
 /** @brief
     check whether inserted records breaks the
     unique constraint on long columns.
@@ -6413,8 +6413,8 @@ static int check_duplicate_long_entries_update(TABLE *table, handler *h, uchar *
                                                  new_rec, i)))
             goto exit;
           /*
-            break beacuse check_duplicate_long_entrie_key will
-            take care of remaning fields
+            break because check_duplicate_long_entries_key will
+            take care of remaining fields
            */
           break;
         }

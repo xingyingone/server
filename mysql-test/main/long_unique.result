@@ -227,7 +227,6 @@ t1	CREATE TABLE `t1` (
   UNIQUE KEY `a` (`a`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1
 # try to change the blob unique name;
-#this will change index to b tree;
 alter table t1 change column a aa blob ;
 show create table t1;
 Table	Create Table
