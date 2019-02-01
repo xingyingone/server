@@ -4729,8 +4729,7 @@ public:
                                    const char *path,
                                    const char *db,
                                    const char *table_name,
-                                   bool open_in_engine,
-                                   bool open_internal_tables);
+                                   bool open_in_engine);
 
   TABLE *find_temporary_table(const char *db, const char *table_name,
                               Temporary_table_state state= TMP_TABLE_IN_USE);

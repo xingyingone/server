@@ -65,8 +65,7 @@ TABLE *THD::create_and_open_tmp_table(handlerton *hton,
                                       const char *path,
                                       const char *db,
                                       const char *table_name,
-                                      bool open_in_engine,
-                                      bool open_internal_tables)
+                                      bool open_in_engine)
 {
   DBUG_ENTER("THD::create_and_open_tmp_table");
 
@@ -91,15 +90,6 @@ TABLE *THD::create_and_open_tmp_table(handlerton *hton,
 
       /* Free the TMP_TABLE_SHARE. */
       free_tmp_table_share(share, false);
-      DBUG_RETURN(0);
-    }
-
-    /* Open any related tables */
-    if (open_internal_tables && table->internal_tables &&
-        open_and_lock_internal_tables(table, open_in_engine))
-    {
-      drop_temporary_table(table, NULL, false);
-      DBUG_RETURN(0);
     }
   }
 

@@ -4764,14 +4764,20 @@ static int create_ordinary(THD *thd, const char *path,
   {
     TABLE *table= thd->create_and_open_tmp_table(create_info->db_type, frm,
                                                  path, db, table_name,
-                                                 create_in_engine,
-                                                 create_info->options &
-                                                 HA_CREATE_TMP_ALTER);
+                                                 create_in_engine);
 
     if (!table)
     {
       if (create_in_engine)
         (void) thd->rm_temporary_table(create_info->db_type, path);
+      goto err;
+    }
+    /* Open any related tables */
+    if ((create_info->options & HA_CREATE_TMP_ALTER) &&
+        table->internal_tables &&
+        open_and_lock_internal_tables(table, create_in_engine))
+    {
+      thd->drop_temporary_table(table, NULL, false);
       goto err;
     }
     create_info->table= table;
@@ -4836,8 +4842,7 @@ static int discover_assisted(THD *thd,
   {
     TABLE *table= thd->create_and_open_tmp_table(create_info->db_type, frm,
                                                  path, db->str,
-                                                 table_name->str, true,
-                                                 false);
+                                                 table_name->str, true);
 
     if (!table)
     {
