@@ -4735,7 +4735,8 @@ static int create_frm_only(THD *thd,
 
 static int create_ordinary(THD *thd, const char *path,
                            const char *db, const char *table_name,
-                           HA_CREATE_INFO *create_info, LEX_CUSTRING *frm)
+                           HA_CREATE_INFO *create_info, LEX_CUSTRING *frm,
+                           bool create_in_engine)
 {
   int error= 1;
   TABLE_SHARE share;
@@ -4744,28 +4745,33 @@ static int create_ordinary(THD *thd, const char *path,
   DBUG_ENTER("create_ordinary");
 
   init_tmp_table_share(thd, &share, db, 0, table_name, path);
-  share.frm_image= frm;
-  // open an frm image
-  if (share.init_from_binary_frm_image(thd, write_frm_now,
-                                       frm->str, frm->length))
-    goto err;
+  if (create_in_engine)
+  {
+    share.frm_image= frm;
+    // open an frm image
+    if (share.init_from_binary_frm_image(thd, write_frm_now,
+                                         frm->str, frm->length))
+      goto err;
 
-  if (thd->variables.keep_files_on_create)
-    create_info->options|= HA_CREATE_KEEP_FILES;
+    if (thd->variables.keep_files_on_create)
+      create_info->options|= HA_CREATE_KEEP_FILES;
 
-  if (ha_create_table(thd, share, create_info))
-    goto err;
+    if (ha_create_table(thd, share, create_info))
+      goto err;
+  }
 
   if (create_info->tmp_table() || (create_info->options & HA_CREATE_TMP_ALTER))
   {
     TABLE *table= thd->create_and_open_tmp_table(create_info->db_type, frm,
-                                                 path, db, table_name, true,
+                                                 path, db, table_name,
+                                                 create_in_engine,
                                                  create_info->options &
                                                  HA_CREATE_TMP_ALTER);
 
     if (!table)
     {
-      (void) thd->rm_temporary_table(create_info->db_type, path);
+      if (create_in_engine)
+        (void) thd->rm_temporary_table(create_info->db_type, path);
       goto err;
     }
     create_info->table= table;
@@ -5078,7 +5084,7 @@ int mysql_create_table_no_lock(THD *thd,
       res= create_frm_only(thd, db, table_name, path, create_info, alter_info,
                            create_table_mode, &not_used_1, &not_used_2, &frm) ||
            create_ordinary(thd, path, db->str, table_name->str, create_info,
-                           &frm);
+                           &frm, true);
       if (res)
         quick_rm_table(thd, create_info->db_type, db, table_name,
                        FN_IS_TMP | NO_HA_TABLE, path);
@@ -9669,13 +9675,13 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db,
                  alter_ctx.tmp_name.str, true, frm.str, frm.length))
       goto err_new_table_cleanup;
 
-    if (!(altered_table=
-          thd->create_and_open_tmp_table(new_db_type, &frm,
-                                         alter_ctx.get_tmp_path(),
-                                         alter_ctx.new_db.str,
-                                         alter_ctx.tmp_name.str,
-                                         false, true)))
+    if (create_ordinary(thd, alter_ctx.get_tmp_path(),
+                        alter_ctx.new_db.str, alter_ctx.tmp_name.str,
+                        create_info, &frm, false))
       goto err_new_table_cleanup;
+
+    altered_table= create_info->table;
+    DBUG_ASSERT(altered_table);
 
     /* Set markers for fields in TABLE object for altered table. */
     update_altered_table(ha_alter_info, altered_table);
@@ -9790,7 +9796,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db,
 
   if (create_ordinary(thd, alter_ctx.get_tmp_path(),
                       alter_ctx.new_db.str, alter_ctx.tmp_name.str,
-                      create_info, &frm))
+                      create_info, &frm, true))
     goto err_new_table_cleanup;
 
   /* Mark that we have created table in storage engine. */
