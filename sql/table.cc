@@ -8698,35 +8698,6 @@ void TABLE::delete_update_handler()
   delete update_handler;
   this->update_handler= NULL;
 }
-/**
- @brief This function makes table object with
-        long unique keys ready for optimizer and alter table
- @param table Table object
- */
-void TABLE::setup_table_hash()
-{
-
-  if (!this->s->long_unique_table)
-    return;
-  KEY *keyinfo= key_info;
-  for (uint i= 0; i < this->s->keys; i++, keyinfo++)
-    if (keyinfo->algorithm == HA_KEY_ALG_LONG_HASH)
-      setup_keyinfo_hash(keyinfo);
-}
-
-/**
- @brief Revert the effect of setup_table_hash
- @param table Table Object
- */
-void TABLE::re_setup_table()
-{
-  if (!s->long_unique_table)
-    return;
-  KEY *keyinfo= key_info;
-  for (uint i= 0; i < s->keys; i++, keyinfo++)
-    if (keyinfo->algorithm == HA_KEY_ALG_LONG_HASH)
-      re_setup_keyinfo_hash(keyinfo);
-}
 
 LEX_CSTRING *fk_option_name(enum_fk_option opt)
 {

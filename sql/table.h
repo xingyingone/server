@@ -1570,8 +1570,6 @@ public:
   void vers_update_end();
   void clone_handler_for_update();
   void delete_update_handler();
-  void setup_table_hash();
-  void re_setup_table();
 
 /** Number of additional fields used in versioned tables */
 #define VERSIONING_FIELDS 2

@@ -2083,7 +2083,6 @@ int show_create_table(THD *thd, TABLE_LIST *table_list, String *packet,
   uint primary_key;
   KEY *key_info;
   TABLE *table= table_list->table;
-  table->setup_table_hash();
   TABLE_SHARE *share= table->s;
   sql_mode_t sql_mode= thd->variables.sql_mode;
   bool explicit_fields= false;
@@ -2287,7 +2286,7 @@ int show_create_table(THD *thd, TABLE_LIST *table_list, String *packet,
                           hton->field_options);
   }
 
-  key_info= table->key_info;
+  key_info= table->s->key_info;
   primary_key= share->primary_key;
 
   for (uint i=0 ; i < share->keys ; i++,key_info++)
@@ -2442,7 +2441,6 @@ int show_create_table(THD *thd, TABLE_LIST *table_list, String *packet,
   }
 #endif
   tmp_restore_column_map(table->read_set, old_map);
-  table->re_setup_table();
   DBUG_RETURN(error);
 }
 
@@ -6548,7 +6546,7 @@ static int get_schema_stat_record(THD *thd, TABLE_LIST *tables,
   else if (!tables->view)
   {
     TABLE *show_table= tables->table;
-    KEY *key_info=show_table->key_info;
+    KEY *key_info=show_table->s->key_info;
     if (show_table->file)
     {
       show_table->file->info(HA_STATUS_VARIABLE |
@@ -6556,7 +6554,6 @@ static int get_schema_stat_record(THD *thd, TABLE_LIST *tables,
                              HA_STATUS_TIME);
       set_statistics_for_table(thd, show_table);
     }
-    show_table->setup_table_hash();
     for (uint i=0 ; i < show_table->s->keys ; i++,key_info++)
     {
       if ((key_info->flags & HA_INVISIBLE_KEY) &&
@@ -6632,7 +6629,6 @@ static int get_schema_stat_record(THD *thd, TABLE_LIST *tables,
           DBUG_RETURN(1);
       }
     }
-    show_table->re_setup_table();
   }
   DBUG_RETURN(res);
 }
@@ -6856,12 +6852,11 @@ static int get_schema_constraints_record(THD *thd, TABLE_LIST *tables,
   {
     List<FOREIGN_KEY_INFO> f_key_list;
     TABLE *show_table= tables->table;
-    KEY *key_info=show_table->key_info;
+    KEY *key_info=show_table->s->key_info;
     uint primary_key= show_table->s->primary_key;
     show_table->file->info(HA_STATUS_VARIABLE |
                            HA_STATUS_NO_LOCK |
                            HA_STATUS_TIME);
-    show_table->setup_table_hash();
     for (uint i=0 ; i < show_table->s->keys ; i++, key_info++)
     {
       if (i != primary_key && !(key_info->flags & HA_NOSAME)
@@ -6883,7 +6878,6 @@ static int get_schema_constraints_record(THD *thd, TABLE_LIST *tables,
           DBUG_RETURN(1);
       }
     }
-    show_table->re_setup_table();
 
     // Table check constraints
     for ( uint i = 0; i < show_table->s->table_check_constraints; i++ )
@@ -7057,12 +7051,11 @@ static int get_schema_key_column_usage_record(THD *thd,
   {
     List<FOREIGN_KEY_INFO> f_key_list;
     TABLE *show_table= tables->table;
-    KEY *key_info=show_table->key_info;
+    KEY *key_info=show_table->s->key_info;
     uint primary_key= show_table->s->primary_key;
     show_table->file->info(HA_STATUS_VARIABLE |
                            HA_STATUS_NO_LOCK |
                            HA_STATUS_TIME);
-    show_table->setup_table_hash();
     for (uint i=0 ; i < show_table->s->keys ; i++, key_info++)
     {
       if (i != primary_key && !(key_info->flags & HA_NOSAME)
@@ -7086,7 +7079,6 @@ static int get_schema_key_column_usage_record(THD *thd,
         }
       }
     }
-    show_table->re_setup_table();
 
     show_table->file->get_foreign_key_list(thd, &f_key_list);
     FOREIGN_KEY_INFO *f_key_info;

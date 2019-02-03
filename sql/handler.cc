@@ -3698,7 +3698,6 @@ void handler::print_error(int error, myf errflag)
           re_setup_keyinfo_hash(long_key);
         DBUG_VOID_RETURN;
       }
-      table->re_setup_table();
     }
     textno=ER_DUP_KEY;
     break;
