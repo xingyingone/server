@@ -1196,9 +1196,6 @@ bool parse_vcol_defs(THD *thd, MEM_ROOT *mem_root, TABLE *table,
         key->key_length= HA_HASH_KEY_LENGTH_WITH_NULL;
       else
         key->key_length= HA_HASH_KEY_LENGTH_WITHOUT_NULL;
-      key= table->s->key_info + key_index;
-      key->user_defined_key_parts= key->ext_key_parts= key->usable_key_parts= 1;
-      key->key_part+= parts;
 
       if (key->flags & HA_NULL_PART_KEY)
         key->key_length= HA_HASH_KEY_LENGTH_WITH_NULL;
@@ -3437,35 +3434,7 @@ enum open_frm_error open_table_from_share(THD *thd, TABLE_SHARE *share,
       key_part_end= key_part + (share->use_ext_keys ? key_info->ext_key_parts :
 			                              key_info->user_defined_key_parts) ;
       if (key_info->algorithm == HA_KEY_ALG_LONG_HASH)
-      {
-        /*
-         Either it can be first time opening the table share  or it can be second time
-         of more. The difference is when it is first time key_part[0]->fieldnr points
-         to blob/long field, but when it is 2nd time there will bw always one key_part
-         and it will point to hash_field.
-         So in the case of 2nd time we will make key_info->key_part point to start of long
-         field.
-         For example we have unique(a,b,c)
-           In first share opening key_part will point to a field
-            but in parse_vcol_defs it will be changed to point to db_row_hash field
-           in Second or later opening key_part will be pointing to db_row_hash
-         We will chnage it back to point to field a, because in this way we can create
-         vcol_info for hash field in parse_vcol_defs.
-         */
-        //Second or more time share opening
-        key_info->user_defined_key_parts= 0;
-        key_part_end= key_part;
-        while(!(share->field[key_part_end->fieldnr -1 ]->flags & LONG_UNIQUE_HASH_FIELD))
-        {
-          key_part_end++;
-          key_info->user_defined_key_parts++;
-        }
-        key_info->usable_key_parts= key_info->ext_key_parts= key_info->user_defined_key_parts;
         key_part_end++;
-        share_keyinfo= share->key_info + key_no;
-        if (share_keyinfo->key_part->field->flags & LONG_UNIQUE_HASH_FIELD)
-          share_keyinfo->key_part-= key_info->user_defined_key_parts;
-      }
       for ( ; key_part < key_part_end; key_part++)
       {
         Field *field= key_part->field= outparam->field[key_part->fieldnr - 1];
