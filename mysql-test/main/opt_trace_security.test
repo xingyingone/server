@@ -1,3 +1,4 @@
+--source include/not_embedded.inc
 create database db1;
 use db1;
 create table t1(a int);

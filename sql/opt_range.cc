@@ -3328,7 +3328,7 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
           table->cond_selectivity*= quick_cond_selectivity;
           Json_writer_object selectivity_for_index(writer);
           selectivity_for_index.add("index_name", key_info->name)
-                               .add("selectivity_from_range",
+                               .add("selectivity_from_index",
                                     quick_cond_selectivity);
           if (i != used_key_parts)
 	  {
@@ -3445,7 +3445,7 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
         {
           rows= 0;
           table->reginfo.impossible_range= 1;
-          selectivity_for_column.add("selectivity_from_range", rows);
+          selectivity_for_column.add("selectivity_from_histograms", rows);
           selectivity_for_column.add("cause", "impossible_range");
           goto free_alloc;
         }          
@@ -3455,7 +3455,7 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
           if (rows != DBL_MAX)
           {
             key->field->cond_selectivity= rows/table_records;
-            selectivity_for_column.add("selectivity_from_range",
+            selectivity_for_column.add("selectivity_from_histograms",
                                        key->field->cond_selectivity);
           }
         }

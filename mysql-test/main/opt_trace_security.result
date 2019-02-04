@@ -74,17 +74,21 @@ select * from db1.t1	{
               }
             ]
           },
-          "rows_estimation": [
-            {
-              "table": "t1",
-              "table_scan": {
-                "rows": 3,
-                "cost": 2.0051
+          {
+            "rows_estimation": [
+              {
+                "table": "t1",
+                "table_scan": {
+                  "rows": 3,
+                  "cost": 2.0051
+                }
               }
+            ]
+          },
+          {
+            "execution_plan_for_potential_materialization": {
+              "steps": []
             }
-          ],
-          "execution_plan_for_potential_materialization": {
-            "steps": []
           },
           {
             "considered_execution_plans": [
@@ -186,17 +190,21 @@ select * from db1.v1	{
               }
             ]
           },
-          "rows_estimation": [
-            {
-              "table": "t1",
-              "table_scan": {
-                "rows": 3,
-                "cost": 2.0051
+          {
+            "rows_estimation": [
+              {
+                "table": "t1",
+                "table_scan": {
+                  "rows": 3,
+                  "cost": 2.0051
+                }
               }
+            ]
+          },
+          {
+            "execution_plan_for_potential_materialization": {
+              "steps": []
             }
-          ],
-          "execution_plan_for_potential_materialization": {
-            "steps": []
           },
           {
             "considered_execution_plans": [

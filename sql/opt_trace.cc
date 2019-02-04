@@ -101,7 +101,9 @@ inline bool sql_command_can_be_traced(enum enum_sql_command sql_command)
     For first iteration we are only allowing select queries.
     TODO: change to allow other queries.
   */
-  return (sql_command == SQLCOM_SELECT);
+  return sql_command == SQLCOM_SELECT ||
+         sql_command == SQLCOM_UPDATE ||
+         sql_command == SQLCOM_DELETE;
 }
 
 void opt_trace_print_expanded_query(THD *thd, SELECT_LEX *select_lex,

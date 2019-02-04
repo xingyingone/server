@@ -66,138 +66,142 @@ explain select * from t1 where a=1 or b=1	{
           {
             "ref_optimizer_key_uses": []
           },
-          "rows_estimation": [
-            {
-              "table": "t1",
-              "range_analysis": {
-                "table_scan": {
-                  "rows": 1000,
-                  "cost": 231.69
-                },
-                "potential_range_indexes": [
-                  {
-                    "index": "a",
-                    "usable": true,
-                    "key_parts": ["a"]
+          {
+            "rows_estimation": [
+              {
+                "table": "t1",
+                "range_analysis": {
+                  "table_scan": {
+                    "rows": 1000,
+                    "cost": 231.69
                   },
-                  {
-                    "index": "b",
-                    "usable": true,
-                    "key_parts": ["b"]
-                  },
-                  {
-                    "index": "c",
-                    "usable": false,
-                    "cause": "not_applicable"
-                  }
-                ],
-                "setup_range_conditions": [],
-                "group_index_range": {
-                  "chosen": false,
-                  "cause": "no_group_by_or_distinct"
-                },
-                "analyzing_range_alternatives": {
-                  "range_scan_alternatives": [],
-                  "analyzing_roworder_intersect": {
-                    "cause": "too_few_roworder_scans"
-                  },
-                  "analyzing_sort_intersect": {},
-                  "analyzing_index_merge_union": [
+                  "potential_range_indexes": [
                     {
-                      "indexes_to_merge": [
-                        {
-                          "range_scan_alternatives": [
-                            {
-                              "index": "a",
-                              "ranges": ["1 <= a <= 1"],
-                              "rowid_ordered": true,
-                              "using_mrr": false,
-                              "index_only": true,
-                              "rows": 1,
-                              "cost": 2.21,
-                              "chosen": true
+                      "index": "a",
+                      "usable": true,
+                      "key_parts": ["a"]
+                    },
+                    {
+                      "index": "b",
+                      "usable": true,
+                      "key_parts": ["b"]
+                    },
+                    {
+                      "index": "c",
+                      "usable": false,
+                      "cause": "not_applicable"
+                    }
+                  ],
+                  "setup_range_conditions": [],
+                  "group_index_range": {
+                    "chosen": false,
+                    "cause": "no_group_by_or_distinct"
+                  },
+                  "analyzing_range_alternatives": {
+                    "range_scan_alternatives": [],
+                    "analyzing_roworder_intersect": {
+                      "cause": "too_few_roworder_scans"
+                    },
+                    "analyzing_sort_intersect": {},
+                    "analyzing_index_merge_union": [
+                      {
+                        "indexes_to_merge": [
+                          {
+                            "range_scan_alternatives": [
+                              {
+                                "index": "a",
+                                "ranges": ["1 <= a <= 1"],
+                                "rowid_ordered": true,
+                                "using_mrr": false,
+                                "index_only": true,
+                                "rows": 1,
+                                "cost": 2.21,
+                                "chosen": true
+                              }
+                            ],
+                            "index_to_merge": "a",
+                            "cumulated_cost": 2.21
+                          },
+                          {
+                            "range_scan_alternatives": [
+                              {
+                                "index": "b",
+                                "ranges": ["1 <= b <= 1"],
+                                "rowid_ordered": true,
+                                "using_mrr": false,
+                                "index_only": true,
+                                "rows": 1,
+                                "cost": 2.21,
+                                "chosen": true
+                              }
+                            ],
+                            "index_to_merge": "b",
+                            "cumulated_cost": 4.42
+                          }
+                        ],
+                        "cost_of_reading_ranges": 4.42,
+                        "use_roworder_union": true,
+                        "cause": "always_cheaper_than_non_roworder_retrieval",
+                        "analyzing_roworder_scans": [
+                          {
+                            "type": "range_scan",
+                            "index": "a",
+                            "rows": 1,
+                            "ranges": ["1 <= a <= 1"],
+                            "analyzing_roworder_intersect": {
+                              "cause": "too_few_roworder_scans"
                             }
-                          ],
-                          "index_to_merge": "a",
-                          "cumulated_cost": 2.21
-                        },
-                        {
-                          "range_scan_alternatives": [
-                            {
-                              "index": "b",
-                              "ranges": ["1 <= b <= 1"],
-                              "rowid_ordered": true,
-                              "using_mrr": false,
-                              "index_only": true,
-                              "rows": 1,
-                              "cost": 2.21,
-                              "chosen": true
+                          },
+                          {
+                            "type": "range_scan",
+                            "index": "b",
+                            "rows": 1,
+                            "ranges": ["1 <= b <= 1"],
+                            "analyzing_roworder_intersect": {
+                              "cause": "too_few_roworder_scans"
                             }
-                          ],
-                          "index_to_merge": "b",
-                          "cumulated_cost": 4.42
-                        }
-                      ],
-                      "cost_of_reading_ranges": 4.42,
-                      "use_roworder_union": true,
-                      "cause": "always_cheaper_than_non_roworder_retrieval",
-                      "analyzing_roworder_scans": [
+                          }
+                        ],
+                        "index_roworder_union_cost": 6.2137,
+                        "members": 2,
+                        "chosen": true
+                      }
+                    ]
+                  },
+                  "chosen_range_access_summary": {
+                    "range_access_plan": {
+                      "type": "index_roworder_union",
+                      "union_of": [
                         {
                           "type": "range_scan",
                           "index": "a",
                           "rows": 1,
-                          "ranges": ["1 <= a <= 1"],
-                          "analyzing_roworder_intersect": {
-                            "cause": "too_few_roworder_scans"
-                          }
+                          "ranges": ["1 <= a <= 1"]
                         },
                         {
                           "type": "range_scan",
                           "index": "b",
                           "rows": 1,
-                          "ranges": ["1 <= b <= 1"],
-                          "analyzing_roworder_intersect": {
-                            "cause": "too_few_roworder_scans"
-                          }
+                          "ranges": ["1 <= b <= 1"]
                         }
-                      ],
-                      "index_roworder_union_cost": 6.2137,
-                      "members": 2,
-                      "chosen": true
-                    }
-                  ]
-                },
-                "chosen_range_access_summary": {
-                  "range_access_plan": {
-                    "type": "index_roworder_union",
-                    "union_of": [
-                      {
-                        "type": "range_scan",
-                        "index": "a",
-                        "rows": 1,
-                        "ranges": ["1 <= a <= 1"]
-                      },
-                      {
-                        "type": "range_scan",
-                        "index": "b",
-                        "rows": 1,
-                        "ranges": ["1 <= b <= 1"]
-                      }
-                    ]
-                  },
-                  "rows_for_plan": 2,
-                  "cost_for_plan": 6.2137,
-                  "chosen": true
+                      ]
+                    },
+                    "rows_for_plan": 2,
+                    "cost_for_plan": 6.2137,
+                    "chosen": true
+                  }
                 }
+              },
+              {
+                "selectivity_for_indexes": [],
+                "selectivity_for_columns": []
               }
-            },
-            {
-              "selectivity_for_indexes": [],
-              "selectivity_for_columns": []
+            ]
+          },
+          {
+            "execution_plan_for_potential_materialization": {
+              "steps": []
             }
-          ],
-          "execution_plan_for_potential_materialization": {
-            "steps": []
           },
           {
             "considered_execution_plans": [
