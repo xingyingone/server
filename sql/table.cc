@@ -1280,6 +1280,27 @@ static const Type_handler *old_frm_type_handler(uint pack_flag,
   return Type_handler::get_handler_by_real_type(field_type);
 }
 
+#define LONG_HASH_FIELD_NAME_LENGTH 30
+static inline void print_hash_field_name(LEX_CSTRING *buf, uint num)
+{
+  buf->length= my_snprintf((char *)buf->str,
+          LONG_HASH_FIELD_NAME_LENGTH, "DB_ROW_HASH_%u", num);
+}
+
+static inline void make_long_hash_field_name(LEX_CSTRING *buf,TYPELIB *fieldnames)
+{
+  uint num= 1;
+  print_hash_field_name(buf, num);
+  for (uint i= 0; i < fieldnames->count; i++)
+  {
+    if(!my_strcasecmp(system_charset_info, fieldnames->type_names[i], buf->str))
+    {
+      num++;
+      print_hash_field_name(buf, num);
+      i= 0;
+    }
+  }
+}
 
 /**
   Read data from a binary .frm file image into a TABLE_SHARE
@@ -1315,6 +1336,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
   const uchar *disk_buff, *strpos;
   ulong pos, record_offset;
   ulong rec_buff_length;
+  uint extra_rec_length= 0;
   handler *handler_file= 0;
   KEY	*keyinfo;
   KEY_PART_INFO *key_part= NULL;
@@ -1743,11 +1765,16 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
                          share, len, &first_keyinfo, keynames))
       goto err;
   }
+  share->null_fields= 0;
   keyinfo= share->key_info;
   for (uint i= 0; i < share->keys; i++, keyinfo++)
     if(key_info->algorithm == HA_KEY_ALG_LONG_HASH)
+    {
+      if (key_info->flags & HA_NULL_PART_KEY)
+        share->null_fields++;
       hash_fields++;
-
+    }
+  extra_rec_length= hash_fields + share->null_fields/8;
   share->key_block_size= uint2korr(frm_image+62);
 
   if (share->db_plugin && !plugin_equals(share->db_plugin, se_plugin))
@@ -1755,10 +1782,10 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
 
   rec_buff_length= ALIGN_SIZE(share->reclength + 1);
   share->rec_buff_length= rec_buff_length;
-  if (!(record= (uchar *) alloc_root(&share->mem_root, rec_buff_length)))
+  if (!(record= (uchar *) alloc_root(&share->mem_root, rec_buff_length + extra_rec_length)))
     goto err;                          /* purecov: inspected */
-  MEM_NOACCESS(record, rec_buff_length);
-  MEM_UNDEFINED(record, share->reclength);
+  MEM_NOACCESS(record, rec_buff_length + extra_rec_length);
+  MEM_UNDEFINED(record, share->reclength + extra_rec_length);
   share->default_values= record;
   memcpy(record, frm_image + record_offset, share->reclength);
 
@@ -1771,7 +1798,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
   interval_count= uint2korr(forminfo+270);
   interval_parts= uint2korr(forminfo+272);
   int_length= uint2korr(forminfo+274);
-  share->null_fields= uint2korr(forminfo+282);
+  share->null_fields+= uint2korr(forminfo+282);
   com_length= uint2korr(forminfo+284);
   vcol_screen_length= uint2korr(forminfo+286);
   share->virtual_fields= share->default_expressions=
@@ -1787,12 +1814,12 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
 
   DBUG_PRINT("info",("i_count: %d  i_parts: %d  index: %d  n_length: %d  int_length: %d  com_length: %d  vcol_screen_length: %d", interval_count,interval_parts, keys,n_length,int_length, com_length, vcol_screen_length));
 
+
   if (!multi_alloc_root(&share->mem_root,
-                        //&share->field, (uint)(share->fields+hash_fields+1)*sizeof(Field*),
-                        &share->field, (uint)(share->fields+1)*sizeof(Field*),
+                        &share->field, (uint)(share->fields+hash_fields+1)*sizeof(Field*),
                         &share->intervals, (uint)interval_count*sizeof(TYPELIB),
                         &share->check_constraints, (uint) share->table_check_constraints * sizeof(Virtual_column_info*),
-                        &interval_array, (uint) (share->fields+interval_parts+ keys+3)*sizeof(char *),
+                        &interval_array, (uint) (share->fields+ hash_fields+ interval_parts+ keys+3)*sizeof(char *),
                         &names, (uint) (n_length+int_length),
                         &comment_pos, (uint) com_length,
                         &vcol_screen_pos, vcol_screen_length,
@@ -2224,15 +2251,42 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
     }
   }
 
-/*   for (uint i=0; i < hash_fields; i++, field_ptr++)
+  key_info= share->key_info;
+  for (uint i=0; i < hash_fields; i++, field_ptr++)
   {
-    LEX_CSTRING comment;
-    LEX_CSTRING name;
+    LEX_CSTRING comment, name;
+    uint32 flags= 0;
+    Column_definition_attributes attr;
 	comment.str= (char*) "";
 	comment.length=0;
-    field_ptr->length= ;
-
-  }*/
+    //There are n no of hash fields for n long unique key
+    while(key_info->algorithm != HA_KEY_ALG_LONG_HASH)
+      key_info++;
+    attr.length= HA_HASH_FIELD_LENGTH;
+    if (key_info->flags & HA_NULL_PART_KEY)
+      attr.pack_flag= FIELDFLAG_MAYBE_NULL;
+    attr.unireg_check= Field::NONE;
+    attr.charset=NULL;//STODO
+    name.str= (const char *)alloc_root(&share->mem_root, LONG_HASH_FIELD_NAME_LENGTH);
+    make_long_hash_field_name(&name, &fieldnames);
+    fieldnames.count++;
+    fieldnames.type_names[share->fields + i] = name.str;
+    Record_addr addr(record + share->reclength, null_pos, null_bit_pos);
+    *field_ptr= reg_field=
+      attr.make_field(share, &share->mem_root, &addr, &type_handler_longlong, &name, flags);
+    if (!reg_field)				// Not supported field type
+      goto err;
+    reg_field->field_index= i + share->fields;
+    reg_field->comment=comment;
+    reg_field->flags|= flags;
+    reg_field->invisible= INVISIBLE_FULL;
+    if (!(reg_field->flags & NOT_NULL_FLAG))
+    {
+      if (!(null_bit_pos= (null_bit_pos + 1) & 7))
+        null_pos++;
+    }
+    share->reclength+= HA_HASH_FIELD_LENGTH;
+  }
   *field_ptr=0;					// End marker
   /* Sanity checks: */
   DBUG_ASSERT(share->fields>=share->stored_fields);
@@ -2250,7 +2304,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
   if (key_parts)
   {
     keyinfo= share->key_info;
-    uint hash_field_used_no= share->fields -1 ;
+    uint hash_field_used_no= share->fields;
     KEY_PART_INFO *hash_keypart;
     Field *hash_field;
     for (uint i= 0; i < share->keys; i++, keyinfo++)
@@ -2268,17 +2322,17 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
         hash_keypart->type= HA_KEYTYPE_ULONGLONG;
         hash_keypart->key_part_flag= 0;
         hash_keypart->key_type= 32834;
-        /* Last n fields are unique_index_hash fields*/
-        hash_keypart->offset= share->reclength
-                       - HA_HASH_FIELD_LENGTH*(share->fields - hash_field_used_no);
-        hash_keypart->fieldnr= hash_field_used_no + 1;
         hash_field= share->field[hash_field_used_no];
+        hash_keypart->fieldnr= hash_field_used_no + 1;
+        /* Last n fields are unique_index_hash fields*/
+        hash_keypart->offset= hash_field->ptr - record;
         hash_field->flags|= LONG_UNIQUE_HASH_FIELD;//Used in parse_vcol_defs
         keyinfo->flags&= ~HA_NOSAME;
         share->virtual_fields++;
-        hash_field_used_no--;
+        hash_field_used_no++;
       }
     }
+    share->fields+= hash_fields;
     uint add_first_key_parts= 0;
     longlong ha_option= handler_file->ha_table_flags();
     keyinfo= share->key_info;

@@ -4185,7 +4185,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     }
 
     if (is_hash_field_needed)
-    {
+    {/*  
         Create_field *hash_fld= add_hash_field(thd, &alter_info->create_list,
                        create_info->default_table_charset,
                        key_info);
@@ -4197,7 +4197,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       {
         hash_fld->flags|= NOT_NULL_FLAG;
         hash_fld->pack_flag&= ~FIELDFLAG_MAYBE_NULL;
-      }
+      }*/
+      key_info->algorithm= HA_KEY_ALG_LONG_HASH;
     }
     if (validate_comment_length(thd, &key->key_create_info.comment,
                                 INDEX_COMMENT_MAXLEN,
