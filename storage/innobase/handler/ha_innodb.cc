@@ -4,7 +4,7 @@ Copyright (c) 2000, 2018, Oracle and/or its affiliates. All Rights Reserved.
 Copyright (c) 2008, 2009 Google Inc.
 Copyright (c) 2009, Percona Inc.
 Copyright (c) 2012, Facebook Inc.
-Copyright (c) 2013, 2018, MariaDB Corporation.
+Copyright (c) 2013, 2019, MariaDB Corporation.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -4912,8 +4912,6 @@ static void innobase_kill_query(handlerton*, THD* thd, enum thd_kill_levels)
 		/* if victim has been signaled by BF thread and/or aborting
 		   is already progressing, following query aborting is not necessary
 		   any more.
-		   Also, BF thread should own trx mutex for the victim, which would
-		   conflict with trx_mutex_enter() below
 		*/
 		DBUG_VOID_RETURN;
 	}
@@ -4922,34 +4920,8 @@ static void innobase_kill_query(handlerton*, THD* thd, enum thd_kill_levels)
 	if (trx_t* trx = thd_to_trx(thd)) {
 		ut_ad(trx->mysql_thd == thd);
 
-		switch (trx->abort_type) {
-#ifdef WITH_WSREP
-		case TRX_WSREP_ABORT:
-			break;
-#endif
-		case TRX_SERVER_ABORT:
-			if (!wsrep_thd_is_BF(trx->mysql_thd, FALSE)) {
-				lock_mutex_enter();
-			}
-			/* fall through */
-		case TRX_REPLICATION_ABORT:
-			trx_mutex_enter(trx);
-		}
 		/* Cancel a pending lock request if there are any */
 		lock_trx_handle_wait(trx);
-		switch (trx->abort_type) {
-#ifdef WITH_WSREP
-		case TRX_WSREP_ABORT:
-			break;
-#endif
-		case TRX_SERVER_ABORT:
-			if (!wsrep_thd_is_BF(trx->mysql_thd, FALSE)) {
-				lock_mutex_exit();
-			}
-			/* fall through */
-		case TRX_REPLICATION_ABORT:
-			trx_mutex_exit(trx);
-		}
 	}
 
 	DBUG_VOID_RETURN;
@@ -6904,7 +6876,7 @@ wsrep_store_key_val_for_row(
 
 		if (key_part->null_bit) {
 			if (buff_space > 0) {
-				if (record[key_part->null_offset] 
+				if (record[key_part->null_offset]
 				    & key_part->null_bit) {
 					*buff = 1;
 					part_is_null = TRUE;
@@ -6914,8 +6886,8 @@ wsrep_store_key_val_for_row(
 				buff++;
 				buff_space--;
 			} else {
-				fprintf (stderr, "WSREP: key truncated: %s\n",
-					 wsrep_thd_query(thd));
+				WSREP_WARN("key truncated: %s",
+					   wsrep_thd_query(thd));
 			}
 		}
 		if (!part_is_null)  *key_is_null = FALSE;
@@ -6938,9 +6910,8 @@ wsrep_store_key_val_for_row(
 			if (part_is_null) {
 				true_len = key_len + 2;
 				if (true_len > buff_space) {
-					fprintf (stderr,
-						 "WSREP: key truncated: %s\n",
-						 wsrep_thd_query(thd));
+					WSREP_WARN("key truncated: %s",
+						   wsrep_thd_query(thd));
 					true_len = buff_space;
 				}
 				buff       += true_len;
@@ -6980,7 +6951,7 @@ wsrep_store_key_val_for_row(
 
 			memcpy(sorted, data, true_len);
 			true_len = wsrep_innobase_mysql_sort(
-				mysql_type, cs->number, sorted, true_len, 
+				mysql_type, cs->number, sorted, true_len,
 				REC_VERSION_56_MAX_INDEX_COL_LEN);
 
 			if (wsrep_protocol_version > 1) {
@@ -6990,9 +6961,8 @@ wsrep_store_key_val_for_row(
 			   actual data. The rest of the space was reset to zero
 			   in the bzero() call above. */
 				if (true_len > buff_space) {
-					fprintf (stderr,
-						 "WSREP: key truncated: %s\n",
-						 wsrep_thd_query(thd));
+					WSREP_WARN("key truncated: %s",
+						   wsrep_thd_query(thd));
 					true_len = buff_space;
 				}
  				memcpy(buff, sorted, true_len);
@@ -7023,9 +6993,8 @@ wsrep_store_key_val_for_row(
 			if (part_is_null) {
 				true_len = key_len + 2;
 				if (true_len > buff_space) {
-					fprintf (stderr,
-						 "WSREP: key truncated: %s\n",
-						 wsrep_thd_query(thd));
+					WSREP_WARN("key truncated: %s",
+						   wsrep_thd_query(thd));
 					true_len = buff_space;
 				}
 				buff       += true_len;
@@ -7077,9 +7046,8 @@ wsrep_store_key_val_for_row(
 			length of the BLOB prefix in the key value. */
                         if (wsrep_protocol_version > 1) {
 				if (true_len > buff_space) {
-					fprintf (stderr,
-						 "WSREP: key truncated: %s\n",
-						 wsrep_thd_query(thd));
+					WSREP_WARN("key truncated: %s",
+						   wsrep_thd_query(thd));
 					true_len = buff_space;
 				}
 				buff       += true_len;
@@ -7106,9 +7074,8 @@ wsrep_store_key_val_for_row(
 			if (part_is_null) {
 				true_len = key_len;
 				if (true_len > buff_space) {
-					fprintf (stderr,
-						 "WSREP: key truncated: %s\n",
-						 wsrep_thd_query(thd));
+					WSREP_WARN("key truncated: %s",
+						   wsrep_thd_query(thd));
 					true_len = buff_space;
 				}
 				buff       += true_len;
@@ -7153,9 +7120,8 @@ wsrep_store_key_val_for_row(
 					REC_VERSION_56_MAX_INDEX_COL_LEN);
 
 				if (true_len > buff_space) {
-					fprintf (stderr,
-						 "WSREP: key truncated: %s\n",
-						 wsrep_thd_query(thd));
+					WSREP_WARN("key truncated: %s",
+						   wsrep_thd_query(thd));
 					true_len   = buff_space;
 				}
 				memcpy(buff, sorted, true_len);
@@ -8148,7 +8114,7 @@ ha_innobase::write_row(
 	    && num_write_row >= 10000) {
 #ifdef WITH_WSREP
 		if (wsrep_on(user_thd) && sql_command == SQLCOM_LOAD) {
-			WSREP_DEBUG("forced trx split for LOAD: %s", 
+			WSREP_DEBUG("forced trx split for LOAD: %s",
 				    wsrep_thd_query(user_thd));
 		}
 #endif /* WITH_WSREP */
@@ -8365,14 +8331,12 @@ no_commit:
                                    auto_inc_inserted                         &&
                                    wsrep_drupal_282555_workaround            &&
                                    wsrep_thd_retry_counter(current_thd) == 0 &&
-				    !thd_test_options(current_thd, 
-						      OPTION_NOT_AUTOCOMMIT | 
+				    !thd_test_options(current_thd,
+						      OPTION_NOT_AUTOCOMMIT |
 						      OPTION_BEGIN)) {
 					WSREP_DEBUG(
 					    "retrying insert: %s",
-					    (*wsrep_thd_query(current_thd)) ? 
-						wsrep_thd_query(current_thd) : 
-						(char *)"void");
+					    wsrep_thd_query(current_thd));
 					error= DB_SUCCESS;
 					wsrep_thd_set_conflict_state(
 						current_thd, MUST_ABORT);
@@ -10312,8 +10276,7 @@ wsrep_append_foreign_key(
 			((!foreign) ?  "constraint" :
 			((!foreign->referenced_table) ?
 			     "referenced table" : "foreign table")),
-			   (thd && wsrep_thd_query(thd)) ?
-			   wsrep_thd_query(thd) : "void");
+			   wsrep_thd_query(thd));
 		return DB_ERROR;
 	}
 
@@ -10334,13 +10297,11 @@ wsrep_append_foreign_key(
 					wsrep_dict_foreign_find_index(
 						foreign->referenced_table, NULL,
 						foreign->referenced_col_names,
-						foreign->n_fields, 
+						foreign->n_fields,
 						foreign->foreign_index,
 						TRUE, FALSE);
 			}
-		}
-		else
-		{
+		} else {
 	  		foreign->foreign_table =
 				dict_table_get_low(
 					foreign->foreign_table_name_lookup);
@@ -10351,7 +10312,7 @@ wsrep_append_foreign_key(
 						foreign->foreign_table, NULL,
 						foreign->foreign_col_names,
 						foreign->n_fields,
-						foreign->referenced_index, 
+						foreign->referenced_index,
 						TRUE, FALSE);
 			}
 		}
@@ -10364,8 +10325,7 @@ wsrep_append_foreign_key(
 		WSREP_WARN("FK: %s missing in query: %s",
 			   (!foreign->referenced_table) ?
 			   "referenced table" : "foreign table",
-			   (wsrep_thd_query(thd)) ?
-			   wsrep_thd_query(thd) : "void");
+			   wsrep_thd_query(thd));
 		return DB_ERROR;
 	}
 	byte  key[WSREP_MAX_SUPPORTED_KEY_LENGTH+1] = {'\0'};
@@ -10434,8 +10394,7 @@ wsrep_append_foreign_key(
 		wkey_part,
 		(size_t*)&wkey.key_parts_num)) {
 		WSREP_WARN("key prepare failed for cascaded FK: %s",
-			   (wsrep_thd_query(thd)) ?
-			    wsrep_thd_query(thd) : "void");
+			   wsrep_thd_query(thd));
 		return DB_ERROR;
 	}
 	wsrep_t *wsrep= get_wsrep();
@@ -10449,8 +10408,7 @@ wsrep_append_foreign_key(
 	if (rcode) {
 		DBUG_PRINT("wsrep", ("row key failed: %zu", rcode));
 		WSREP_ERROR("Appending cascaded fk row key failed: %s, %lu",
-			    (wsrep_thd_query(thd)) ?
-			    wsrep_thd_query(thd) : "void", rcode);
+			    wsrep_thd_query(thd),rcode);
 		return DB_ERROR;
 	}
 
@@ -10472,9 +10430,9 @@ wsrep_append_key(
 	DBUG_ENTER("wsrep_append_key");
 	bool const copy = true;
 #ifdef WSREP_DEBUG_PRINT
-	fprintf(stderr, "%s conn %ld, trx %llu, keylen %d, table %s\n Query: %s ",
+	fprintf(stderr, "%s conn %ld, trx " TRX_ID_FMT " , keylen %d, table %s\n Query: %s ",
 		(shared) ? "Shared" : "Exclusive",
-		thd_get_thread_id(thd), (long long)trx->id, key_len,
+		thd_get_thread_id(thd), trx->id, key_len,
 		table_share->table_name.str, wsrep_thd_query(thd));
 	for (int i=0; i<key_len; i++) {
 		fprintf(stderr, "%hhX, ", key[i]);
@@ -10490,8 +10448,7 @@ wsrep_append_key(
 			wkey_part,
 			(size_t*)&wkey.key_parts_num)) {
 		WSREP_WARN("key prepare failed for: %s",
-			   (wsrep_thd_query(thd)) ?
-			   wsrep_thd_query(thd) : "void");
+			   wsrep_thd_query(thd));
 		DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 	}
 
@@ -10506,8 +10463,7 @@ wsrep_append_key(
 	if (rcode) {
 		DBUG_PRINT("wsrep", ("row key failed: %d", rcode));
 		WSREP_WARN("Appending row key failed: %s, %d",
-			   (wsrep_thd_query(thd)) ?
-			   wsrep_thd_query(thd) : "void", rcode);
+			   wsrep_thd_query(thd), rcode);
 		DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 	}
 	DBUG_RETURN(0);
@@ -10542,18 +10498,17 @@ ha_innobase::wsrep_append_keys(
 	const uchar*	record0,	/* in: row in MySQL format */
 	const uchar*	record1)	/* in: row in MySQL format */
 {
-	int rcode;
+	int rcode=0;
 	DBUG_ENTER("wsrep_append_keys");
 
 	bool key_appended = false;
 	trx_t *trx = thd_to_trx(thd);
 
 	if (table_share && table_share->tmp_table  != NO_TMP_TABLE) {
-		WSREP_DEBUG("skipping tmp table DML: THD: %lu tmp: %d SQL: %s", 
+		WSREP_DEBUG("skipping tmp table DML: THD: %lu tmp: %d SQL: %s",
 			    thd_get_thread_id(thd),
 			    table_share->tmp_table,
-			    (wsrep_thd_query(thd)) ? 
-			    wsrep_thd_query(thd) : "void");
+			    wsrep_thd_query(thd));
 		DBUG_RETURN(0);
 	}
 
@@ -10569,13 +10524,11 @@ ha_innobase::wsrep_append_keys(
 
 		if (!is_null) {
 			rcode = wsrep_append_key(
-				thd, trx, table_share, table, keyval, 
+				thd, trx, table_share, table, keyval,
 				len, shared);
 			if (rcode) DBUG_RETURN(rcode);
-		}
-		else
-		{
-			WSREP_DEBUG("NULL key skipped (proto 0): %s", 
+		} else {
+			WSREP_DEBUG("NULL key skipped (proto 0): %s",
 				    wsrep_thd_query(thd));
 		}
 	} else {
@@ -10607,7 +10560,7 @@ ha_innobase::wsrep_append_keys(
 
 			if (!tab) {
 				WSREP_WARN("MySQL-InnoDB key mismatch %s %s",
-					   table->s->table_name.str, 
+					   table->s->table_name.str,
 					   key_info->name);
 			}
 			/* !hasPK == table with no PK, must append all non-unique keys */
@@ -10617,32 +10570,30 @@ ha_innobase::wsrep_append_keys(
 			     (!tab && referenced_by_foreign_key()))) {
 
 				len = wsrep_store_key_val_for_row(
-					thd, table, i, key0, 
-					WSREP_MAX_SUPPORTED_KEY_LENGTH, 
+					thd, table, i, key0,
+					WSREP_MAX_SUPPORTED_KEY_LENGTH,
 					record0, &is_null);
 				if (!is_null) {
 					rcode = wsrep_append_key(
-						thd, trx, table_share, table, 
+						thd, trx, table_share, table,
 						keyval0, len+1, shared);
 					if (rcode) DBUG_RETURN(rcode);
 
 				if (key_info->flags & HA_NOSAME || shared)
 			  		key_appended = true;
-				}
-				else
-				{
-					WSREP_DEBUG("NULL key skipped: %s", 
+				} else {
+					WSREP_DEBUG("NULL key skipped: %s",
 						    wsrep_thd_query(thd));
 				}
 				if (record1) {
 					len = wsrep_store_key_val_for_row(
-						thd, table, i, key1, 
+						thd, table, i, key1,
 						WSREP_MAX_SUPPORTED_KEY_LENGTH,
 						record1, &is_null);
 					if (!is_null && memcmp(key0, key1, len)) {
 						rcode = wsrep_append_key(
-							thd, trx, table_share, 
-							table, 
+							thd, trx, table_share,
+							table,
 							keyval1, len+1, shared);
 						if (rcode) DBUG_RETURN(rcode);
 					}
@@ -10657,8 +10608,8 @@ ha_innobase::wsrep_append_keys(
 		int rcode;
 
 		wsrep_calc_row_hash(digest, record0, table, prebuilt, thd);
-		if ((rcode = wsrep_append_key(thd, trx, table_share, table, 
-					      (const char*) digest, 16, 
+		if ((rcode = wsrep_append_key(thd, trx, table_share, table,
+					      (const char*) digest, 16,
 					      shared))) {
 			DBUG_RETURN(rcode);
 		}
@@ -10666,9 +10617,9 @@ ha_innobase::wsrep_append_keys(
 		if (record1) {
 			wsrep_calc_row_hash(
 				digest, record1, table, prebuilt, thd);
-			if ((rcode = wsrep_append_key(thd, trx, table_share, 
+			if ((rcode = wsrep_append_key(thd, trx, table_share,
 						      table,
-						      (const char*) digest, 
+						      (const char*) digest,
 						      16, shared))) {
 				DBUG_RETURN(rcode);
 			}
@@ -18588,12 +18539,13 @@ wsrep_innobase_kill_one_trx(
 	ibool signal)
 {
         ut_ad(lock_mutex_own());
+        ut_ad(victim_trx);
         ut_ad(trx_mutex_own(victim_trx));
         ut_ad(bf_thd_ptr);
-        ut_ad(victim_trx);
 
 	DBUG_ENTER("wsrep_innobase_kill_one_trx");
-	THD *bf_thd       = bf_thd_ptr ? (THD*) bf_thd_ptr : NULL;
+
+	THD *bf_thd       = (THD *) bf_thd_ptr;
 	THD *thd          = (THD *) victim_trx->mysql_thd;
 	int64_t bf_seqno  = (bf_thd) ? wsrep_thd_trx_seqno(bf_thd) : 0;
 
@@ -18603,36 +18555,40 @@ wsrep_innobase_kill_one_trx(
 		DBUG_RETURN(1);
 	}
 
-	if (!bf_thd) {
-		DBUG_PRINT("wsrep", ("no BF thd for conflicting lock"));
-		WSREP_WARN("no BF THD for trx: " TRX_ID_FMT,
-			   bf_trx ? bf_trx->id : 0);
-		DBUG_RETURN(1);
-	}
-
 	WSREP_LOG_CONFLICT(bf_thd, thd, TRUE);
 
-	WSREP_DEBUG("BF kill (%lu, seqno: %lld), victim: (%lu) trx: "
-		    TRX_ID_FMT,
- 		    signal, (long long)bf_seqno,
+	wsrep_thd_LOCK(thd);
+
+	WSREP_DEBUG("BF kill (" ULINTPF ", seqno: " INT64PF
+		    "), victim: (%lu) trx: " TRX_ID_FMT,
+		    signal, bf_seqno,
 		    thd_get_thread_id(thd),
 		    victim_trx->id);
 
-	WSREP_DEBUG("Aborting query: %s conf %d trx: %" PRId64,
-		    (thd && wsrep_thd_query(thd)) ? wsrep_thd_query(thd) : "void",
-		    wsrep_thd_conflict_state(thd, FALSE),
+	WSREP_DEBUG("Aborting query: %s conflict_state %s trx: %" PRId64,
+		    wsrep_thd_query(thd),
+		    wsrep_thd_conflict_state_str(thd),
 		    wsrep_thd_ws_handle(thd)->trx_id);
 
-	wsrep_thd_LOCK(thd);
-        DBUG_EXECUTE_IF("sync.wsrep_after_BF_victim_lock",
-                 {
-                   const char act[]=
-                     "now "
-                     "wait_for signal.wsrep_after_BF_victim_lock";
-                   DBUG_ASSERT(!debug_sync_set_action(bf_thd,
-                                                      STRING_WITH_LEN(act)));
-                 };);
+	WSREP_DEBUG("Exec mode %s query_state %s",
+		    wsrep_thd_exec_mode_str(thd),
+		    wsrep_thd_query_state_str(thd));
 
+	/*
+	 * we mark with was_chosen_as_deadlock_victim transaction,
+	 * which is already marked as BF victim
+	 * lock_sys is held until this vicitm has aborted
+	 */
+	victim_trx->lock.was_chosen_as_wsrep_victim = TRUE;
+
+	DBUG_EXECUTE_IF("sync.wsrep_after_BF_victim_lock",
+	{
+		const char act[]=
+			"now "
+			"wait_for signal.wsrep_after_BF_victim_lock";
+		DBUG_ASSERT(!debug_sync_set_action(bf_thd,
+			    STRING_WITH_LEN(act)));
+	};);
 
 	if (wsrep_thd_query_state(thd) == QUERY_EXITING) {
 		WSREP_DEBUG("kill trx EXITING for " TRX_ID_FMT,
@@ -18642,9 +18598,9 @@ wsrep_innobase_kill_one_trx(
 	}
 
 	if(wsrep_thd_exec_mode(thd) != LOCAL_STATE) {
-		WSREP_DEBUG("withdraw for BF trx: " TRX_ID_FMT ", state: %d",
+		WSREP_DEBUG("withdraw for BF trx: " TRX_ID_FMT ", state: %s",
 			    victim_trx->id,
-		wsrep_thd_get_conflict_state(thd));
+			    wsrep_thd_conflict_state_str(thd));
 	}
 
 	switch (wsrep_thd_get_conflict_state(thd)) {
@@ -18661,8 +18617,8 @@ wsrep_innobase_kill_one_trx(
 	case ABORTED:
 	case ABORTING: // fall through
 	default:
-		WSREP_DEBUG("victim " TRX_ID_FMT " in state %d",
-			    victim_trx->id, wsrep_thd_get_conflict_state(thd));
+		WSREP_DEBUG("victim " TRX_ID_FMT " in state %s",
+			    victim_trx->id, wsrep_thd_conflict_state_str(thd));
 		wsrep_thd_UNLOCK(thd);
 		DBUG_RETURN(0);
 		break;
@@ -18765,9 +18721,9 @@ wsrep_innobase_kill_one_trx(
 					      wsrep_thd_trx_seqno(thd));
 			DBUG_RETURN(0);
 		}
+
                 /* This will lock thd from proceeding after net_read() */
 		wsrep_thd_set_conflict_state(thd, ABORTING);
-
 		wsrep_lock_rollback();
 
 		if (wsrep_aborting_thd_contains(thd)) {
@@ -18807,24 +18763,22 @@ wsrep_abort_transaction(
 	my_bool signal)
 {
 	DBUG_ENTER("wsrep_innobase_abort_thd");
-	
+
 	trx_t* victim_trx	= thd_to_trx(victim_thd);
 	trx_t* bf_trx		= (bf_thd) ? thd_to_trx(bf_thd) : NULL;
 
 	WSREP_DEBUG("abort transaction: BF: %s victim: %s victim conf: %d",
-			wsrep_thd_query(bf_thd),
-			wsrep_thd_query(victim_thd),
-			wsrep_thd_conflict_state(victim_thd, FALSE));
+		wsrep_thd_query(bf_thd),
+		wsrep_thd_query(victim_thd),
+		wsrep_thd_conflict_state(victim_thd, FALSE));
 
 	if (victim_trx) {
 		lock_mutex_enter();
 		trx_mutex_enter(victim_trx);
-		victim_trx->abort_type = TRX_WSREP_ABORT;
 		int rcode = wsrep_innobase_kill_one_trx(bf_thd, bf_trx,
                                                         victim_trx, signal);
 		trx_mutex_exit(victim_trx);
 		lock_mutex_exit();
-		victim_trx->abort_type = TRX_SERVER_ABORT;
 		wsrep_srv_conc_cancel_wait(victim_trx);
 		DBUG_RETURN(rcode);
 	} else {

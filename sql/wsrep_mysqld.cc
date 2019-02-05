@@ -2579,9 +2579,12 @@ extern "C" query_id_t wsrep_thd_query_id(THD *thd)
 }
 
 
-char *wsrep_thd_query(THD *thd)
+const char *wsrep_thd_query(THD *thd)
 {
-  return (thd) ? thd->query() : NULL;
+  const char *query="NULL";
+  if (thd && thd->query())
+    query = thd->query();
+  return query;
 }
 
 

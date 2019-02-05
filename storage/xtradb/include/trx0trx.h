@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2016, Oracle and/or its affiliates. All Rights Reserved.
-Copyright (c) 2015, 2018, MariaDB Corporation.
+Copyright (c) 2015, 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -673,6 +673,12 @@ struct trx_lock_t {
 					only be modified by the thread that is
 					serving the running transaction. */
 
+#ifdef WITH_WSREP
+	bool		was_chosen_as_wsrep_victim;
+					/*!< high priority wsrep thread has
+					marked this trx to abort */
+#endif /* WITH_WSREP */
+
 	mem_heap_t*	lock_heap;	/*!< memory heap for trx_locks;
 					protected by lock_sys->mutex */
 
@@ -746,9 +752,6 @@ lock_sys->mutex and sometimes by trx->mutex. */
 
 enum trx_abort_t {
 	TRX_SERVER_ABORT = 0,
-#ifdef WITH_WSREP
-	TRX_WSREP_ABORT,
-#endif
 	TRX_REPLICATION_ABORT
 };
 

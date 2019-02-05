@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2016, Oracle and/or its affiliates. All Rights Reserved.
-Copyright (c) 2014, 2018, MariaDB Corporation.
+Copyright (c) 2014, 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -1793,10 +1793,8 @@ wsrep_kill_victim(
 				}
 			}
 
-			lock->trx->abort_type = TRX_WSREP_ABORT;
 			wsrep_innobase_kill_one_trx(trx->mysql_thd,
 				(const trx_t*) trx, lock->trx, TRUE);
-			lock->trx->abort_type = TRX_SERVER_ABORT;
 		}
 	}
 }
@@ -7967,16 +7965,7 @@ lock_trx_release_locks(
 	lock_mutex_exit();
 }
 
-/*********************************************************************//**
-Check whether the transaction has already been rolled back because it
-was selected as a deadlock victim, or if it has to wait then cancel
-the wait lock.
-@return DB_DEADLOCK, DB_LOCK_WAIT or DB_SUCCESS */
-UNIV_INTERN
-dberr_t
-lock_trx_handle_wait(
-/*=================*/
-	trx_t*	trx)	/*!< in/out: trx lock state */
+static inline dberr_t lock_trx_handle_wait_low(trx_t* trx)
 {
 	ut_ad(lock_mutex_own());
 	ut_ad(trx_mutex_own(trx));
@@ -7991,6 +7980,35 @@ lock_trx_handle_wait(
 
 	lock_cancel_waiting_and_release(trx->lock.wait_lock);
 	return DB_LOCK_WAIT;
+}
+
+/*********************************************************************//**
+Check whether the transaction has already been rolled back because it
+was selected as a deadlock victim, or if it has to wait then cancel
+the wait lock.
+@return DB_DEADLOCK, DB_LOCK_WAIT or DB_SUCCESS */
+UNIV_INTERN
+dberr_t
+lock_trx_handle_wait(
+/*=================*/
+	trx_t*	trx)	/*!< in/out: trx lock state */
+{
+#ifdef WITH_WSREP
+	/* We already own mutexes */
+	if (trx->lock.was_chosen_as_wsrep_victim) {
+		return lock_trx_handle_wait_low(trx);
+	}
+#endif /* WITH_WSREP */
+	if (trx->abort_type != TRX_REPLICATION_ABORT) {
+		lock_mutex_enter();
+	}
+	trx_mutex_enter(trx);
+	dberr_t err = lock_trx_handle_wait_low(trx);
+	if (trx->abort_type != TRX_REPLICATION_ABORT) {
+		lock_mutex_exit();
+	}
+	trx_mutex_exit(trx);
+	return err;
 }
 
 /*********************************************************************//**
