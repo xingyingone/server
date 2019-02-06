@@ -369,6 +369,15 @@ class Opt_trace_stmt {
   void disable_tracing_for_children();
   void enable_tracing_for_children();
   bool is_enabled();
+
+  void set_allowed_mem_size(size_t mem_size);
+  size_t get_allowed_mem_size() { current_json->get_allowed_mem_size(); }
+  size_t get_length() { return current_json->output.length(); }
+  void add_missing_bytes(size_t length);
+  size_t get_missing_bytes() { return current_json->get_missing_bytes(); }
+  bool get_missing_priv() { return missing_priv; }
+  void set_trace() { current_json->set_trace(); }
+
 private:
   Opt_trace_context *ctx;
   String query;  // store the query sent by the user
@@ -377,7 +386,8 @@ private:
   uint I_S_disabled;
 };
 
-void Opt_trace_stmt::set_query(const char *query_ptr, size_t length, const CHARSET_INFO *charset)
+void Opt_trace_stmt::set_query(const char *query_ptr, size_t length,
+                               const CHARSET_INFO *charset)
 {
   query.append(query_ptr, length, charset);
 }
@@ -393,6 +403,22 @@ void Opt_trace_context::missing_privilege()
 {
   if (current_trace)
     current_trace->missing_privilege();
+}
+
+void Opt_trace_context::set_allowed_mem_size(size_t mem_size)
+{
+  current_trace->set_allowed_mem_size(mem_size);
+}
+
+/*
+  TODO: In future when we would be saving multiple trace,
+  this function would return
+  max_mem_size - memory_occupied_by_the_saved_traces
+*/
+
+size_t Opt_trace_context::remaining_mem_size()
+{
+  return max_mem_size;
 }
 
 bool Opt_trace_context::disable_tracing_if_required()
@@ -427,6 +453,7 @@ Opt_trace_context::Opt_trace_context()
   current_trace= NULL;
   inited= FALSE;
   traces= NULL;
+  max_mem_size= 0;
 }
 Opt_trace_context::~Opt_trace_context()
 {
@@ -445,6 +472,7 @@ Opt_trace_context::~Opt_trace_context()
     delete traces;
     traces= NULL;
   }
+  max_mem_size= 0;
 }
 
 void Opt_trace_context::set_query(const char *query, size_t length, const CHARSET_INFO *charset)
@@ -456,7 +484,8 @@ void Opt_trace_context::start(THD *thd, TABLE_LIST *tbl,
                   enum enum_sql_command sql_command,
                   const char *query,
                   size_t query_length,
-                  const CHARSET_INFO *query_charset)
+                  const CHARSET_INFO *query_charset,
+                  ulong max_mem_size_arg)
 {
   /*
     This is done currently because we don't want to have multiple
@@ -468,11 +497,14 @@ void Opt_trace_context::start(THD *thd, TABLE_LIST *tbl,
   */
   DBUG_ASSERT(!current_trace);
   current_trace= new Opt_trace_stmt(this);
+  max_mem_size= max_mem_size_arg;
   if (!inited)
   {
     traces= new Dynamic_array<Opt_trace_stmt*>();
     inited= TRUE;
   }
+  current_trace->set_trace();
+  set_allowed_mem_size(remaining_mem_size());
 }
 
 void Opt_trace_context::end()
@@ -511,7 +543,8 @@ Opt_trace_start::Opt_trace_start(THD *thd, TABLE_LIST *tbl,
       !thd->system_thread &&
       !ctx->disable_tracing_if_required())
   {
-    ctx->start(thd, tbl, sql_command, query, query_length, query_charset);
+    ctx->start(thd, tbl, sql_command, query, query_length, query_charset,
+               thd->variables.optimizer_trace_max_mem_size);
     ctx->set_query(query, query_length, query_charset);
     traceable= TRUE;
     opt_trace_disable_if_no_tables_access(thd, tbl);
@@ -533,7 +566,7 @@ Opt_trace_start::~Opt_trace_start()
 
 void Opt_trace_stmt::fill_info(Opt_trace_info* info)
 {
-  if (unlikely(info->missing_priv = missing_priv))
+  if (unlikely(info->missing_priv = get_missing_priv()))
   {
     info->trace_ptr = info->query_ptr = "";
     info->trace_length = info->query_length = 0;
@@ -543,12 +576,12 @@ void Opt_trace_stmt::fill_info(Opt_trace_info* info)
   else
   {
     info->trace_ptr = current_json->output.ptr();
-    info->trace_length = current_json->output.length();
+    info->trace_length = get_length();
     info->query_ptr = query.ptr();
     info->query_length = query.length();
     info->query_charset = query.charset();
-    info->missing_bytes = 0;
-    info->missing_priv= FALSE;
+    info->missing_bytes = get_missing_bytes();
+    info->missing_priv= get_missing_priv();
   }
 }
 
@@ -571,6 +604,16 @@ void Opt_trace_stmt::enable_tracing_for_children()
 bool Opt_trace_stmt::is_enabled()
 {
   return I_S_disabled == 0;
+}
+
+void Opt_trace_stmt::set_allowed_mem_size(size_t mem_size)
+{
+  current_json->set_allowed_mem_size(mem_size);
+}
+
+void Opt_trace_stmt::add_missing_bytes(size_t length)
+{
+  current_json->add_missing_bytes(length);
 }
 
 /*

@@ -3323,3 +3323,42 @@ drop table t1,t2;
 drop function f1;
 drop function f2;
 set optimizer_trace='enabled=off';
+#
+# MDEV-18489: Limit the memory used by the optimizer trace
+#
+create table t1 (a int);
+insert into t1 values (1),(2);
+set optimizer_trace='enabled=on';
+set @save_optimizer_trace_max_mem_size= @@optimizer_trace_max_mem_size;
+select * from t1;
+a
+1
+2
+select length(trace) from INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+length(trace)
+1889
+set optimizer_trace_max_mem_size=100;
+select * from t1;
+a
+1
+2
+select * from INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+QUERY	TRACE	MISSING_BYTES_BEYOND_MAX_MEM_SIZE	INSUFFICIENT_PRIVILEGES
+select * from t1	{
+  "steps": [
+    {
+      "join_preparation": {
+        "select_id": 1,
+        "steps": [
+	1797	0
+set optimizer_trace_max_mem_size=0;
+select * from t1;
+a
+1
+2
+select * from INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+QUERY	TRACE	MISSING_BYTES_BEYOND_MAX_MEM_SIZE	INSUFFICIENT_PRIVILEGES
+select * from t1		1889	0
+drop table t1;
+set optimizer_trace='enabled=off';
+set @@optimizer_trace_max_mem_size= @save_optimizer_trace_max_mem_size;

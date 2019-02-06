@@ -2552,6 +2552,12 @@ static Sys_var_flagset Sys_optimizer_trace(
     // @see set_var::is_var_optimizer_trace()
 export sys_var *Sys_optimizer_trace_ptr = &Sys_optimizer_trace;
 
+static Sys_var_ulong Sys_optimizer_trace_max_mem_size(
+    "optimizer_trace_max_mem_size",
+    "Maximum allowed cumulated size of stored optimizer traces",
+    SESSION_VAR(optimizer_trace_max_mem_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(0, ULONG_MAX), DEFAULT(1024 * 1024), BLOCK_SIZE(1));
+
 static Sys_var_charptr Sys_pid_file(
        "pid_file", "Pid file used by safe_mysqld",
        READ_ONLY GLOBAL_VAR(pidfile_name_ptr), CMD_LINE(REQUIRED_ARG),

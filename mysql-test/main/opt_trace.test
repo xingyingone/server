@@ -279,3 +279,28 @@ drop table t1,t2;
 drop function f1;
 drop function f2;
 set optimizer_trace='enabled=off';
+
+--echo #
+--echo # MDEV-18489: Limit the memory used by the optimizer trace
+--echo #
+
+create table t1 (a int);
+insert into t1 values (1),(2);
+
+set optimizer_trace='enabled=on';
+set @save_optimizer_trace_max_mem_size= @@optimizer_trace_max_mem_size;
+select * from t1;
+select length(trace) from INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+
+set optimizer_trace_max_mem_size=100;
+select * from t1;
+select * from INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+
+set optimizer_trace_max_mem_size=0;
+select * from t1;
+select * from INFORMATION_SCHEMA.OPTIMIZER_TRACE;
+drop table t1;
+set optimizer_trace='enabled=off';
+set @@optimizer_trace_max_mem_size= @save_optimizer_trace_max_mem_size;
+
+

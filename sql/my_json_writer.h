@@ -134,9 +134,17 @@ public:
   void end_object();
   void end_array();
   
+  void set_trace() { is_trace= TRUE; }
+  void set_allowed_mem_size(size_t mem_size) { allowed_mem_size = mem_size; }
+  size_t get_allowed_mem_size() { return allowed_mem_size; }
+  void add_missing_bytes(size_t length) { missing_bytes+= length; }
+  size_t get_missing_bytes() { return missing_bytes; }
+  bool append_to_trace(size_t length);
+
   Json_writer() : 
     indent_level(0), document_start(true), element_started(false), 
-    first_child(true)
+    first_child(true), is_trace(FALSE), allowed_mem_size(0),
+    missing_bytes(0)
   {
     fmt_helper.init(this);
   }
@@ -150,6 +158,13 @@ private:
   bool document_start;
   bool element_started;
   bool first_child;
+  /*
+    True when we are using the optimizer trace
+    FALSE otherwise
+  */
+  bool is_trace;
+  size_t allowed_mem_size;
+  size_t missing_bytes;
 
   Single_line_formatting_helper fmt_helper;
 

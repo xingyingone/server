@@ -15,10 +15,13 @@ void start(THD *thd, TABLE_LIST *tbl,
            enum enum_sql_command sql_command,
            const char *query,
            size_t query_length,
-           const CHARSET_INFO *query_charset);
+           const CHARSET_INFO *query_charset,
+           ulong max_mem_size_arg);
 void end();
 void set_query(const char *query, size_t length, const CHARSET_INFO *charset);
 void flush_optimizer_trace();
+void set_allowed_mem_size(size_t mem_size);
+size_t remaining_mem_size();
 
 private:
 
@@ -84,5 +87,6 @@ private:
     FALSE: otherwise
   */
   bool inited;
+  size_t max_mem_size;
 };
 #endif
