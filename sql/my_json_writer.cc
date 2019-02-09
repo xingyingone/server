@@ -284,19 +284,20 @@ bool Json_writer::append_to_trace(size_t length)
   return output.length() + length <= get_allowed_mem_size();
 }
 
-Json_writer_object::Json_writer_object(Json_writer *writer):Json_writer_struct(writer)
+Json_writer_object::Json_writer_object(Json_writer *writer) : 
+  Json_writer_struct(writer)
 {
   if (my_writer)
     my_writer->start_object();
 }
 
 Json_writer_object::Json_writer_object(Json_writer *writer, const char *str)
-                                       :Json_writer_struct(writer)
+ : Json_writer_struct(writer)
 {
   if (my_writer)
     my_writer->add_member(str).start_object();
-
 }
+
 Json_writer_object::~Json_writer_object()
 {
   if (!closed && my_writer)
@@ -304,7 +305,8 @@ Json_writer_object::~Json_writer_object()
   closed= TRUE;
 }
 
-Json_writer_array::Json_writer_array(Json_writer *writer):Json_writer_struct(writer)
+Json_writer_array::Json_writer_array(Json_writer *writer) :
+  Json_writer_struct(writer)
 {
   if (my_writer)
     my_writer->start_array();

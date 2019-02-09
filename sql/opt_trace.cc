@@ -693,13 +693,6 @@ void Opt_trace_context::flush_optimizer_trace()
   }
 }
 
-void get_info(THD *thd, Opt_trace_info* info)
-{
-  Opt_trace_context* ctx= &thd->opt_trace;
-  Opt_trace_stmt *stmt= ctx->get_top_trace();
-  stmt->fill_info(info);
-}
-
 
 int fill_optimizer_trace_info(THD *thd, TABLE_LIST *tables, Item *)
 {
@@ -710,19 +703,22 @@ int fill_optimizer_trace_info(THD *thd, TABLE_LIST *tables, Item *)
 
       @todo: Need an iterator here to walk over all the traces
   */
+  Opt_trace_context* ctx= &thd->opt_trace;
 
   if (thd->opt_trace.empty())
   {
-    get_info(thd, &info);
+    Opt_trace_stmt *stmt= ctx->get_top_trace();
+    stmt->fill_info(&info);
 
     table->field[0]->store(info.query_ptr, static_cast<uint>(info.query_length),
-                             info.query_charset);
+                           info.query_charset);
     table->field[1]->store(info.trace_ptr, static_cast<uint>(info.trace_length),
-                             system_charset_info);
+                           system_charset_info);
     table->field[2]->store(info.missing_bytes, true);
     table->field[3]->store(info.missing_priv, true);
     //  Store in IS
-    if (schema_table_store_record(thd, table)) return 1;
+    if (schema_table_store_record(thd, table))
+      return 1;
   }
   return 0;
 }

@@ -181,7 +181,8 @@ public:
 class Json_value_context
 {
   Json_writer* writer;
-  public:
+
+public:
   void init(Json_writer *my_writer) { writer= my_writer; }
   void add_str(const char* val)
   {
@@ -253,7 +254,7 @@ protected:
   bool closed;
 
 public:
-  Json_writer_struct(Json_writer* writer)
+  explicit Json_writer_struct(Json_writer* writer)
   {
     my_writer= writer;
     context.init(writer);
@@ -266,7 +267,7 @@ public:
   RAII-based class to start/end writing a JSON object into the JSON document
 */
 
-class Json_writer_object:public Json_writer_struct
+class Json_writer_object : public Json_writer_struct
 {
 private:
   void add_member(const char *name)
@@ -275,28 +276,33 @@ private:
       my_writer->add_member(name);
   }
 public:
-  Json_writer_object(Json_writer *w);
-  Json_writer_object(Json_writer *w, const char *str);
+  explicit Json_writer_object(Json_writer *w);
+  explicit Json_writer_object(Json_writer *w, const char *str);
+
   Json_writer_object& add(const char *name, bool value)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_bool(value);
     return *this;
   }
   Json_writer_object& add(const char *name, ulonglong value)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_ll(static_cast<longlong>(value));
     return *this;
   }
   Json_writer_object& add(const char *name, longlong value)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_ll(value);
     return *this;
   }
   Json_writer_object& add(const char *name, double value)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_double(value);
     return *this;
@@ -304,6 +310,7 @@ public:
   #ifndef _WIN64
   Json_writer_object& add(const char *name, size_t value)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_ll(static_cast<longlong>(value));
     return *this;
@@ -311,6 +318,7 @@ public:
   #endif
   Json_writer_object& add(const char *name, const char *value)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_str(value);
     return *this;
@@ -323,30 +331,35 @@ public:
   }
   Json_writer_object& add(const char *name, LEX_CSTRING value)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_str(value.str);
     return *this;
   }
   Json_writer_object& add(const char *name, Item *value)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_str(value);
     return *this;
   }
   Json_writer_object& add_null(const char*name)
   {
+    DBUG_ASSERT(!closed);
     add_member(name);
     context.add_null();
     return *this;
   }
   Json_writer_object& add_table_name(const JOIN_TAB *tab)
   {
+    DBUG_ASSERT(!closed);
     add_member("table");
     context.add_table_name(tab);
     return *this;
   }
   Json_writer_object& add_select_number(uint select_number)
   {
+    DBUG_ASSERT(!closed);
     add_member("select_id");
     if (unlikely(select_number >= INT_MAX))
       context.add_str("fake");
@@ -356,6 +369,7 @@ public:
   }
   void end()
   {
+    DBUG_ASSERT(!closed);
     if (my_writer)
       my_writer->end_object();
     closed= TRUE;
@@ -367,71 +381,84 @@ public:
 /*
   RAII-based class to start/end writing a JSON array into the JSON document
 */
-class Json_writer_array:public Json_writer_struct
+class Json_writer_array : public Json_writer_struct
 {
 public:
   Json_writer_array(Json_writer *w);
   Json_writer_array(Json_writer *w, const char *str);
   void end()
   {
+    DBUG_ASSERT(!closed);
     if (my_writer)
       my_writer->end_array();
     closed= TRUE;
   }
+
   Json_writer_array& add(bool value)
   {
+    DBUG_ASSERT(!closed);
     context.add_bool(value);
     return *this;
   }
   Json_writer_array& add(ulonglong value)
   {
+    DBUG_ASSERT(!closed);
     context.add_ll(static_cast<longlong>(value));
     return *this;
   }
   Json_writer_array& add(longlong value)
   {
+    DBUG_ASSERT(!closed);
     context.add_ll(value);
     return *this;
   }
   Json_writer_array& add(double value)
   {
+    DBUG_ASSERT(!closed);
     context.add_double(value);
     return *this;
   }
   #ifndef _WIN64
   Json_writer_array& add(size_t value)
   {
+    DBUG_ASSERT(!closed);
     context.add_ll(static_cast<longlong>(value));
     return *this;
   }
   #endif
   Json_writer_array& add(const char *value)
   {
+    DBUG_ASSERT(!closed);
     context.add_str(value);
     return *this;
   }
   Json_writer_array& add(const char *value, size_t num_bytes)
   {
+    DBUG_ASSERT(!closed);
     context.add_str(value, num_bytes);
     return *this;
   }
   Json_writer_array& add(LEX_CSTRING value)
   {
+    DBUG_ASSERT(!closed);
     context.add_str(value.str);
     return *this;
   }
   Json_writer_array& add(Item *value)
   {
+    DBUG_ASSERT(!closed);
     context.add_str(value);
     return *this;
   }
   Json_writer_array& add_null()
   {
+    DBUG_ASSERT(!closed);
     context.add_null();
     return *this;
   }
   Json_writer_array& add_table_name(const JOIN_TAB *tab)
   {
+    DBUG_ASSERT(!closed);
     context.add_table_name(tab);
     return *this;
   }
