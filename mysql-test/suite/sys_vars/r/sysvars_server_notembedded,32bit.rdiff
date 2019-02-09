@@ -1,5 +1,5 @@
---- suite/sys_vars/r/sysvars_server_notembedded.result	2019-02-09 00:26:12.443051222 +0530
-+++ suite/sys_vars/r/sysvars_server_notembedded,32bit.reject	2019-02-09 03:12:10.997372558 +0530
+--- suite/sys_vars/r/sysvars_server_notembedded.result	2019-02-09 18:56:57.338345161 +0530
++++ suite/sys_vars/r/sysvars_server_notembedded,32bit.reject	2019-02-09 22:24:33.663762812 +0530
 @@ -74,7 +74,7 @@
  GLOBAL_VALUE_ORIGIN	CONFIG
  DEFAULT_VALUE	1
@@ -691,7 +691,7 @@
  VARIABLE_SCOPE	SESSION
 -VARIABLE_TYPE	BIGINT UNSIGNED
 +VARIABLE_TYPE	INT UNSIGNED
- VARIABLE_COMMENT	Maximum allowed cumulated size of stored optimizer traces
+ VARIABLE_COMMENT	Maximum allowed size of an optimizer trace
  NUMERIC_MIN_VALUE	0
 -NUMERIC_MAX_VALUE	18446744073709551615
 +NUMERIC_MAX_VALUE	4294967295
