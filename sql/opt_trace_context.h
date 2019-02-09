@@ -11,70 +11,69 @@ public:
    Opt_trace_context();
   ~Opt_trace_context();
 
-void start(THD *thd, TABLE_LIST *tbl,
-           enum enum_sql_command sql_command,
-           const char *query,
-           size_t query_length,
-           const CHARSET_INFO *query_charset,
-           ulong max_mem_size_arg);
-void end();
-void set_query(const char *query, size_t length, const CHARSET_INFO *charset);
-void flush_optimizer_trace();
-void set_allowed_mem_size(size_t mem_size);
-size_t remaining_mem_size();
+  void start(THD *thd, TABLE_LIST *tbl,
+             enum enum_sql_command sql_command,
+             const char *query,
+             size_t query_length,
+             const CHARSET_INFO *query_charset,
+             ulong max_mem_size_arg);
+  void end();
+  void set_query(const char *query, size_t length, const CHARSET_INFO *charset);
+  void flush_optimizer_trace();
+  void set_allowed_mem_size(size_t mem_size);
+  size_t remaining_mem_size();
 
 private:
-
-Opt_trace_stmt* top_trace()
-{
-  return *(traces->front());
-}
+  Opt_trace_stmt* top_trace()
+  {
+    return *(traces->front());
+  }
 
 public:
 
-/*
-  This returns the top trace from the list of traces. This function
-  is used when we want to see the contents of the INFORMATION_SCHEMA.OPTIMIZER_TRACE
-table.
-*/
+  /*
+    This returns the top trace from the list of traces. This function
+    is used when we want to see the contents of the INFORMATION_SCHEMA.OPTIMIZER_TRACE
+  table.
+  */
 
-Opt_trace_stmt* get_top_trace()
-{
-  if (!traces || !traces->elements())
-    return NULL;
-  return top_trace();
-}
+  Opt_trace_stmt* get_top_trace()
+  {
+    if (!traces || !traces->elements())
+      return NULL;
+    return top_trace();
+  }
 
-/*
-  This returns the current trace, to which we are still writing and has not been finished
-*/
+  /*
+    This returns the current trace, to which we are still writing and has not been finished
+  */
 
-Json_writer* get_current_json();
+  Json_writer* get_current_json();
 
-bool empty()
-{
-  return traces && (static_cast<uint>(traces->elements()) != 0);
-}
+  bool empty()
+  {
+    return traces && (static_cast<uint>(traces->elements()) != 0);
+  }
 
-bool is_started()
-{
-  return current_trace && is_enabled();
-}
+  bool is_started()
+  {
+    return current_trace && is_enabled();
+  }
 
-bool disable_tracing_if_required();
+  bool disable_tracing_if_required();
 
-bool enable_tracing_if_required();
+  bool enable_tracing_if_required();
 
-bool is_enabled();
+  bool is_enabled();
 
-void missing_privilege();
+  void missing_privilege();
 
-static const char *flag_names[];
-enum
-{
-  FLAG_DEFAULT = 0,
-  FLAG_ENABLED = 1 << 0
-};
+  static const char *flag_names[];
+  enum
+  {
+    FLAG_DEFAULT = 0,
+    FLAG_ENABLED = 1 << 0
+  };
 
 private:
   /*
@@ -89,4 +88,5 @@ private:
   bool inited;
   size_t max_mem_size;
 };
-#endif
+
+#endif /* OPT_TRACE_CONTEXT_INCLUDED */

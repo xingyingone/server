@@ -438,6 +438,7 @@ static void append_range_all_keyparts(Json_writer_array *range_trace,
                                       String *range_so_far, const SEL_ARG *keypart,
                                       const KEY_PART_INFO *key_parts);
 
+static
 void append_range(String *out, const KEY_PART_INFO *key_parts,
                   const uchar *min_key, const uchar *max_key, const uint flag);
 
@@ -2401,8 +2402,7 @@ void TRP_INDEX_MERGE::trace_basic_info(const PARAM *param,
   Json_writer* writer= trace->get_current_json();
   trace_object->add("type", "index_merge");
   Json_writer_array ota(writer, "index_merge_of");
-  for (TRP_RANGE **current = range_scans; current != range_scans_end;
-                                                          current++)
+  for (TRP_RANGE **current= range_scans; current != range_scans_end; current++)
   {
     Json_writer_object trp_info(writer);
     (*current)->trace_basic_info(param, &trp_info);
@@ -15725,6 +15725,7 @@ void QUICK_GROUP_MIN_MAX_SELECT::dbug_dump(int indent, bool verbose)
 }
 
 #endif /* !DBUG_OFF */
+static
 void append_range(String *out, const KEY_PART_INFO *key_part,
                   const uchar *min_key, const uchar *max_key, const uint flag)
 {
@@ -15824,7 +15825,6 @@ static void append_range_all_keyparts(Json_writer_array *range_trace,
     keypart_range= keypart_range->next;
     range_so_far->length(save_range_so_far_length);
   }
-  return;
 }
 
 /**
@@ -15852,7 +15852,8 @@ static void print_key_value(String *out, const KEY_PART_INFO *key_part,
 
   uint store_length = key_part->store_length;
 
-  if (field->real_maybe_null()) {
+  if (field->real_maybe_null())
+  {
     /*
       Byte 0 of key is the null-byte. If set, key is NULL.
       Otherwise, print the key value starting immediately after the
@@ -15880,10 +15881,7 @@ static void print_key_value(String *out, const KEY_PART_INFO *key_part,
     return;
   }
 
-  char buff[128];
-  String tmp(buff, sizeof(buff), system_charset_info);
-  tmp.length(0);
-
+  StringBuffer<128> tmp(system_charset_info);
   TABLE *table = field->table;
   my_bitmap_map *old_sets[2];
 

@@ -65,15 +65,6 @@ bool sets_var_optimizer_trace(enum enum_sql_command sql_command,
   return false;
 }
 
-const char brackets[] = {'[', '{', ']', '}'};
-inline char opening_bracket(bool requires_key)
-{
-  return brackets[requires_key];
-}
-inline char closing_bracket(bool requires_key)
-{
-  return brackets[requires_key + 2];
-}
 
 ST_FIELD_INFO optimizer_trace_info[] = {
     /* name, length, type, value, maybe_null, old_name, open_method */
@@ -371,7 +362,6 @@ class Opt_trace_stmt {
   bool is_enabled();
 
   void set_allowed_mem_size(size_t mem_size);
-  size_t get_allowed_mem_size() { return current_json->get_allowed_mem_size(); }
   size_t get_length() { return current_json->output.length(); }
   void add_missing_bytes(size_t length);
   size_t get_missing_bytes() { return current_json->get_missing_bytes(); }
