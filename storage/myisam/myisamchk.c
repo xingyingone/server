@@ -1333,8 +1333,7 @@ static void descript(HA_CHECK *param, register MI_INFO *info, char * name)
        key++,keyinfo++)
   {
     keyseg=keyinfo->seg;
-    if (keyinfo->flag & HA_NOSAME)
-        text="unique ";
+    if (keyinfo->flag & HA_NOSAME) text="unique ";
     else if (keyinfo->flag & HA_FULLTEXT) text="fulltext ";
     else text="multip.";
 

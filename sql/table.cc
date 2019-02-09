@@ -2341,7 +2341,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
         /* Last n fields are unique_index_hash fields*/
         hash_keypart->offset= hash_field->ptr - default_values;
         hash_field->flags|= LONG_UNIQUE_HASH_FIELD;//Used in parse_vcol_defs
-        keyinfo->flags&= ~HA_NOSAME;
+        keyinfo->flags|= HA_NOSAME;
         share->virtual_fields++;
         hash_field_used_no++;
       }
@@ -2354,7 +2354,8 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
                                     primary_key_name) ? MAX_KEY : 0;
     KEY* key_first_info= NULL;
 
-    if (primary_key >= MAX_KEY && keyinfo->flags & HA_NOSAME)
+    if (primary_key >= MAX_KEY && keyinfo->flags & HA_NOSAME &&
+                                 keyinfo->algorithm != HA_KEY_ALG_LONG_HASH)
     {
       /*
         If the UNIQUE key doesn't have NULL columns and is not a part key
@@ -3502,7 +3503,10 @@ enum open_frm_error open_table_from_share(THD *thd, TABLE_SHARE *share,
       key_part_end= key_part + (share->use_ext_keys ? key_info->ext_key_parts :
 			                              key_info->user_defined_key_parts) ;
       if (key_info->algorithm == HA_KEY_ALG_LONG_HASH)
+      {
         key_part_end++;
+        key_info->flags&= ~HA_NOSAME;
+      }
       for ( ; key_part < key_part_end; key_part++)
       {
         Field *field= key_part->field= outparam->field[key_part->fieldnr - 1];

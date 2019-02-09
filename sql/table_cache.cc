@@ -822,7 +822,8 @@ retry:
 
     if (res == -1)
       DBUG_RETURN(0);
-
+    else if (res == 1)
+      continue;
     element= (TDC_element*) lf_hash_search_using_hash_value(&tdc_hash,
              thd->tdc_hash_pins, hash_value, (uchar*) key, key_length);
     lf_hash_search_unpin(thd->tdc_hash_pins);
