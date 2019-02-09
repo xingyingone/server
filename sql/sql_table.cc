@@ -10356,6 +10356,8 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
   to->s->default_fields= 0;
   for (Field **ptr=to->field ; *ptr ; ptr++)
   {
+    if ((*ptr)->flags & LONG_UNIQUE_HASH_FIELD)
+      continue;
     def=it++;
     if (def->field)
     {

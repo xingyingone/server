@@ -1337,6 +1337,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
   ulong pos, record_offset;
   ulong rec_buff_length;
   uint extra_rec_length= 0;
+  uint extra_null_field_bytes=0 , temp_null_bytes= 0;
   handler *handler_file= 0;
   KEY	*keyinfo;
   KEY_PART_INFO *key_part= NULL;
@@ -1766,21 +1767,25 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
       goto err;
   }
   share->null_fields= 0;
+  share->null_fields= uint2korr(forminfo+282);
+  temp_null_bytes= (share->null_fields + 7 )/8;
   keyinfo= share->key_info;
   for (uint i= 0; i < share->keys; i++, keyinfo++)
-    if(key_info->algorithm == HA_KEY_ALG_LONG_HASH)
+    if(keyinfo->algorithm == HA_KEY_ALG_LONG_HASH)
     {
-      if (key_info->flags & HA_NULL_PART_KEY)
+      if (keyinfo->flags & HA_NULL_PART_KEY)
         share->null_fields++;
       hash_fields++;
     }
-  extra_rec_length= hash_fields + share->null_fields/8;
+  extra_null_field_bytes= (share->null_fields + 7 )/8 - temp_null_bytes;
+  share->reclength+= extra_null_field_bytes;
+  extra_rec_length= hash_fields * HA_HASH_FIELD_LENGTH + extra_null_field_bytes;
   share->key_block_size= uint2korr(frm_image+62);
 
   if (share->db_plugin && !plugin_equals(share->db_plugin, se_plugin))
     goto err; // wrong engine (someone changed the frm under our feet?)
 
-  rec_buff_length= ALIGN_SIZE(share->reclength + 1);
+  rec_buff_length= ALIGN_SIZE(share->reclength + 1 + extra_rec_length);
   share->rec_buff_length= rec_buff_length;
   if (!(record= (uchar *) alloc_root(&share->mem_root, rec_buff_length + extra_rec_length)))
     goto err;                          /* purecov: inspected */
@@ -1798,7 +1803,6 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
   interval_count= uint2korr(forminfo+270);
   interval_parts= uint2korr(forminfo+272);
   int_length= uint2korr(forminfo+274);
-  share->null_fields+= uint2korr(forminfo+282);
   com_length= uint2korr(forminfo+284);
   vcol_screen_length= uint2korr(forminfo+286);
   share->virtual_fields= share->default_expressions=
@@ -1849,6 +1853,8 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
   fix_type_pointers(&interval_array, &share->fieldnames, 1, &names);
   if (share->fieldnames.count != share->fields)
     goto err;
+  if (hash_fields)
+    interval_array+= hash_fields;
   fix_type_pointers(&interval_array, share->intervals, interval_count, &names);
 
   {
@@ -1961,7 +1967,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
     if (new_frm_ver >= 3)
     {
       /* new frm file in 4.1 */
-      recpos=	    uint3korr(strpos+5);
+      recpos=	    uint3korr(strpos+5) + extra_null_field_bytes;
       uint comment_length=uint2korr(strpos+15);
 
       if (!comment_length)
@@ -2059,7 +2065,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
     else
     {
       attr.length= (uint) strpos[3];
-      recpos=	    uint2korr(strpos+4),
+      recpos=	    uint2korr(strpos+4) + extra_null_field_bytes,
       attr.pack_flag=    uint2korr(strpos+6);
       attr.pack_flag&=   ~FIELDFLAG_NO_DEFAULT;     // Safety for old files
       attr.unireg_check=  (Field::utype) MTYP_TYPENR((uint) strpos[8]);
@@ -2251,7 +2257,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
     }
   }
 
-  key_info= share->key_info;
+  keyinfo= share->key_info;
   for (uint i=0; i < hash_fields; i++, field_ptr++)
   {
     LEX_CSTRING comment, name;
@@ -2260,25 +2266,25 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
 	comment.str= (char*) "";
 	comment.length=0;
     //There are n no of hash fields for n long unique key
-    while(key_info->algorithm != HA_KEY_ALG_LONG_HASH)
-      key_info++;
+    while(keyinfo->algorithm != HA_KEY_ALG_LONG_HASH)
+      keyinfo++;
     attr.length= HA_HASH_FIELD_LENGTH;
-    if (key_info->flags & HA_NULL_PART_KEY)
+    if (keyinfo->flags & HA_NULL_PART_KEY)
       attr.pack_flag= FIELDFLAG_MAYBE_NULL;
     attr.unireg_check= Field::NONE;
-    attr.charset=NULL;//STODO
+    attr.charset= share->table_charset;//STODO
     name.str= (const char *)alloc_root(&share->mem_root, LONG_HASH_FIELD_NAME_LENGTH);
     make_long_hash_field_name(&name, &fieldnames);
     fieldnames.count++;
     fieldnames.type_names[share->fields + i] = name.str;
-    Record_addr addr(record + share->reclength, null_pos, null_bit_pos);
+    Record_addr addr(share->default_values + share->reclength, null_pos, null_bit_pos);
     *field_ptr= reg_field=
       attr.make_field(share, &share->mem_root, &addr, &type_handler_longlong, &name, flags);
     if (!reg_field)				// Not supported field type
       goto err;
     reg_field->field_index= i + share->fields;
     reg_field->comment=comment;
-    reg_field->flags|= flags;
+    reg_field->flags|= LONG_UNIQUE_HASH_FIELD;
     reg_field->invisible= INVISIBLE_FULL;
     if (!(reg_field->flags & NOT_NULL_FLAG))
     {
@@ -2286,6 +2292,14 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
         null_pos++;
     }
     share->reclength+= HA_HASH_FIELD_LENGTH;
+    keyinfo++;
+  }
+  keyinfo= share->key_info;
+  for (uint i =0; hash_fields && i < share->keys; i++)
+  {
+    if(keyinfo[i].algorithm != HA_KEY_ALG_LONG_HASH)
+      for (uint j= 0; j < keyinfo->user_defined_key_parts; j++)
+        keyinfo[i].key_part[j].offset+= extra_null_field_bytes;
   }
   *field_ptr=0;					// End marker
   /* Sanity checks: */
@@ -2325,7 +2339,7 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
         hash_field= share->field[hash_field_used_no];
         hash_keypart->fieldnr= hash_field_used_no + 1;
         /* Last n fields are unique_index_hash fields*/
-        hash_keypart->offset= hash_field->ptr - record;
+        hash_keypart->offset= hash_field->ptr - default_values;
         hash_field->flags|= LONG_UNIQUE_HASH_FIELD;//Used in parse_vcol_defs
         keyinfo->flags&= ~HA_NOSAME;
         share->virtual_fields++;

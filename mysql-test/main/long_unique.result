@@ -43,7 +43,7 @@ MyISAM file:         DATADIR/test/t1
 Record format:       Packed
 Character set:       latin1_swedish_ci (8)
 Data records:                   10  Deleted blocks:                 0
-Recordlength:                   20
+Recordlength:                   12
 
 table description:
 Key Start Len Index   Type
@@ -131,7 +131,7 @@ MyISAM file:         DATADIR/test/t1
 Record format:       Packed
 Character set:       latin1_swedish_ci (8)
 Data records:                    7  Deleted blocks:                 0
-Recordlength:                   20
+Recordlength:                   12
 
 table description:
 Key Start Len Index   Type
@@ -366,14 +366,14 @@ MyISAM file:         DATADIR/test/t1
 Record format:       Packed
 Character set:       latin1_swedish_ci (8)
 Data records:                    8  Deleted blocks:                 0
-Recordlength:                 3072
+Recordlength:                 3040
 
 table description:
 Key Start Len Index   Type
-1   3063  8   multip. ulonglong NULL       
-2   3055  8   multip. ulonglong NULL       
-3   3047  8   multip. ulonglong NULL       
-4   3039  8   multip. ulonglong NULL       
+1   3039  8   multip. ulonglong NULL       
+2   3047  8   multip. ulonglong NULL       
+3   3055  8   multip. ulonglong NULL       
+4   3063  8   multip. ulonglong NULL       
 select * from information_schema.columns where table_schema = 'test' and table_name = 't1';
 TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	ORDINAL_POSITION	COLUMN_DEFAULT	IS_NULLABLE	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	DATETIME_PRECISION	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE	COLUMN_KEY	EXTRA	PRIVILEGES	COLUMN_COMMENT	IS_GENERATED	GENERATION_EXPRESSION
 def	test	t1	a	1	NULL	YES	blob	65535	65535	NULL	NULL	NULL	NULL	NULL	blob	UNI		select,insert,update,references		NEVER	NULL
@@ -723,14 +723,14 @@ MyISAM file:         DATADIR/test/t1
 Record format:       Packed
 Character set:       latin1_swedish_ci (8)
 Data records:                    9  Deleted blocks:                 0
-Recordlength:                 5092
+Recordlength:                 5059
 
 table description:
 Key Start Len Index   Type
-1   5081  8   multip. ulonglong NULL       
-2   5073  8   multip. ulonglong NULL       
-3   5065  8   multip. ulonglong NULL       
-4   5057  8   multip. ulonglong NULL       
+1   5057  8   multip. ulonglong NULL       
+2   5065  8   multip. ulonglong NULL       
+3   5073  8   multip. ulonglong NULL       
+4   5081  8   multip. ulonglong NULL       
 select * from information_schema.columns where table_schema = 'test' and table_name = 't1';
 TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	ORDINAL_POSITION	COLUMN_DEFAULT	IS_NULLABLE	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	DATETIME_PRECISION	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE	COLUMN_KEY	EXTRA	PRIVILEGES	COLUMN_COMMENT	IS_GENERATED	GENERATION_EXPRESSION
 def	test	t1	a	1	NULL	YES	blob	65535	65535	NULL	NULL	NULL	NULL	NULL	blob	MUL		select,insert,update,references		NEVER	NULL
