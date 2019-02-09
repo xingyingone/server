@@ -371,7 +371,7 @@ class Opt_trace_stmt {
   bool is_enabled();
 
   void set_allowed_mem_size(size_t mem_size);
-  size_t get_allowed_mem_size() { current_json->get_allowed_mem_size(); }
+  size_t get_allowed_mem_size() { return current_json->get_allowed_mem_size(); }
   size_t get_length() { return current_json->output.length(); }
   void add_missing_bytes(size_t length);
   size_t get_missing_bytes() { return current_json->get_missing_bytes(); }

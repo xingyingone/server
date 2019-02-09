@@ -13552,9 +13552,8 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
 
         String range_info;
         range_info.set_charset(system_charset_info);
-        if (trace->is_started())
-          append_range_all_keyparts(&trace_range, NULL, &range_info,
-                                    cur_index_tree, key_part);
+        append_range_all_keyparts(&trace_range, NULL, &range_info,
+                                  cur_index_tree, key_part);
       }
     }
     cost_group_min_max(table, cur_index_info, cur_used_key_parts,
