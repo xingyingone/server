@@ -3350,7 +3350,7 @@ select * from t1	{
       "join_preparation": {
         "select_id": 1,
         "steps": [
-	1797	0
+        	1789	0
 set optimizer_trace_max_mem_size=0;
 select * from t1;
 a

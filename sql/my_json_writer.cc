@@ -21,17 +21,7 @@
 void Json_writer::append_indent()
 {
   if (!document_start)
-  {
-    if (unlikely(is_trace && !append_to_trace(1)))
-      add_missing_bytes(1);
-    else
-      output.append('\n');
-  }
-  if (unlikely(is_trace && !append_to_trace(indent_level)))
-  {
-    add_missing_bytes(indent_level);
-    return;
-  }
+    output.append('\n');
   for (int i=0; i< indent_level; i++)
     output.append(' ');
 }
@@ -43,11 +33,7 @@ void Json_writer::start_object()
   if (!element_started)
     start_element();
 
-  if (unlikely(is_trace && !append_to_trace(1)))
-    add_missing_bytes(1);
-  else
-    output.append("{");
-
+  output.append("{");
   indent_level+=INDENT_SIZE;
   first_child=true;
   element_started= false;
@@ -62,11 +48,7 @@ void Json_writer::start_array()
   if (!element_started)
     start_element();
 
-  if (unlikely(is_trace && !append_to_trace(1)))
-    add_missing_bytes(1);
-  else
-    output.append("[");
-
+  output.append("[");
   indent_level+=INDENT_SIZE;
   first_child=true;
   element_started= false;
@@ -80,11 +62,7 @@ void Json_writer::end_object()
   if (!first_child)
     append_indent();
   first_child= false;
-
-  if (unlikely(is_trace && !append_to_trace(1)))
-    add_missing_bytes(1);
-  else
-    output.append("}");
+  output.append("}");
 }
 
 
@@ -95,11 +73,7 @@ void Json_writer::end_array()
   indent_level-=INDENT_SIZE;
   if (!first_child)
     append_indent();
-
-  if (unlikely(is_trace && !append_to_trace(1)))
-    add_missing_bytes(1);
-  else
-    output.append("]");
+  output.append("]");
 }
 
 
@@ -112,15 +86,9 @@ Json_writer& Json_writer::add_member(const char *name)
   DBUG_ASSERT(!element_started);
   start_element();
 
-  size_t length= strlen(name) + strlen("\": ") + 1;
-  if (unlikely(is_trace && !append_to_trace(length)))
-    add_missing_bytes(length);
-  else
-  {
-    output.append('"');
-    output.append(name);
-    output.append("\": ");
-  }
+  output.append('"');
+  output.append(name);
+  output.append("\": ");
   return *this;
 }
 
@@ -136,12 +104,7 @@ void Json_writer::start_sub_element()
   if (first_child)
     first_child= false;
   else
-  {
-  if (unlikely(is_trace && !append_to_trace(1)))
-    add_missing_bytes(1);
-  else
     output.append(',');
-  }
 
   append_indent();
 }
@@ -154,12 +117,7 @@ void Json_writer::start_element()
   if (first_child)
     first_child= false;
   else
-  {
-  if (unlikely(is_trace && !append_to_trace(1)))
-    add_missing_bytes(1);
-  else
     output.append(',');
-  }
 
   append_indent();
 }
@@ -220,11 +178,7 @@ void Json_writer::add_unquoted_str(const char* str)
   if (!element_started)
     start_element();
 
-  size_t length= strlen(str);
-  if (unlikely(is_trace && !append_to_trace(length)))
-    add_missing_bytes(length);
-  else
-    output.append(str);
+  output.append(str);
   element_started= false;
 }
 
@@ -236,15 +190,9 @@ void Json_writer::add_str(const char *str)
   if (!element_started)
     start_element();
 
-  size_t length= strlen(str) + 2;
-  if (unlikely(is_trace && !append_to_trace(length)))
-    add_missing_bytes(length);
-  else
-  {
-    output.append('"');
-    output.append(str);
-    output.append('"');
-  }
+  output.append('"');
+  output.append(str);
+  output.append('"');
   element_started= false;
 }
 
@@ -260,28 +208,15 @@ void Json_writer::add_str(const char* str, size_t num_bytes)
   if (!element_started)
     start_element();
 
-  size_t length= num_bytes + 2;
-  if (unlikely(is_trace && !append_to_trace(length)))
-    add_missing_bytes(length);
-  else
-  {
-    output.append('"');
-    output.append(str,num_bytes);
-    output.append('"');
-  }
+  output.append('"');
+  output.append(str, num_bytes);
+  output.append('"');
   element_started= false;
 }
 
 void Json_writer::add_str(const String &str)
 {
   add_str(str.ptr(), str.length());
-}
-
-bool Json_writer::append_to_trace(size_t length)
-{
-  if (missing_bytes)
-    return false;
-  return output.length() + length <= get_allowed_mem_size();
 }
 
 Json_writer_object::Json_writer_object(Json_writer *writer) : 
@@ -431,34 +366,21 @@ void Single_line_formatting_helper::flush_on_one_line()
   while (ptr < buf_ptr)
   {
     char *str= ptr;
-    size_t length= strlen(str);
 
     if (nr == 0)
     {
-      length+= strlen("\": ") + 2;
-      if (unlikely(owner->is_trace && !owner->append_to_trace(length)))
-        owner->add_missing_bytes(length);
-      else
-      {
-        owner->output.append('"');
-        owner->output.append(str);
-        owner->output.append("\": ");
-        owner->output.append('[');
-      }
+      owner->output.append('"');
+      owner->output.append(str);
+      owner->output.append("\": ");
+      owner->output.append('[');
     }
     else
     {
-      length+= 2 + (nr != 1 ? 2 : 0);
-      if (unlikely(owner->is_trace && !owner->append_to_trace(length)))
-        owner->add_missing_bytes(length);
-      else
-      {
-        if (nr != 1)
-          owner->output.append(", ");
-        owner->output.append('"');
-        owner->output.append(str);
-        owner->output.append('"');
-      }
+      if (nr != 1)
+        owner->output.append(", ");
+      owner->output.append('"');
+      owner->output.append(str);
+      owner->output.append('"');
     }
     nr++;
 
@@ -466,11 +388,7 @@ void Single_line_formatting_helper::flush_on_one_line()
       ptr++;
     ptr++;
   }
-
-  if (unlikely(owner->is_trace && !owner->append_to_trace(1)))
-    owner->add_missing_bytes(1);
-  else
-    owner->output.append(']');
+  owner->output.append(']');
   /* We've printed out the contents of the buffer, mark it as empty */
   buf_ptr= buffer;
 }

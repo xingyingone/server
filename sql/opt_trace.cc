@@ -363,10 +363,8 @@ class Opt_trace_stmt {
 
   void set_allowed_mem_size(size_t mem_size);
   size_t get_length() { return current_json->output.length(); }
-  void add_missing_bytes(size_t length);
-  size_t get_missing_bytes() { return current_json->get_missing_bytes(); }
+  size_t get_truncated_bytes() { return current_json->get_truncated_bytes(); }
   bool get_missing_priv() { return missing_priv; }
-  void set_trace() { current_json->set_trace(); }
 
 private:
   Opt_trace_context *ctx;
@@ -493,7 +491,6 @@ void Opt_trace_context::start(THD *thd, TABLE_LIST *tbl,
     traces= new Dynamic_array<Opt_trace_stmt*>();
     inited= TRUE;
   }
-  current_trace->set_trace();
   set_allowed_mem_size(remaining_mem_size());
 }
 
@@ -565,12 +562,12 @@ void Opt_trace_stmt::fill_info(Opt_trace_info* info)
   }
   else
   {
-    info->trace_ptr = current_json->output.ptr();
+    info->trace_ptr = current_json->output.get_string()->ptr();
     info->trace_length = get_length();
     info->query_ptr = query.ptr();
     info->query_length = query.length();
     info->query_charset = query.charset();
-    info->missing_bytes = get_missing_bytes();
+    info->missing_bytes = get_truncated_bytes();
     info->missing_priv= get_missing_priv();
   }
 }
@@ -598,12 +595,7 @@ bool Opt_trace_stmt::is_enabled()
 
 void Opt_trace_stmt::set_allowed_mem_size(size_t mem_size)
 {
-  current_json->set_allowed_mem_size(mem_size);
-}
-
-void Opt_trace_stmt::add_missing_bytes(size_t length)
-{
-  current_json->add_missing_bytes(length);
+  current_json->set_size_limit(mem_size);
 }
 
 /*

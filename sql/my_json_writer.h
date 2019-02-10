@@ -101,6 +101,80 @@ public:
 
 
 /*
+  Something that looks like class String, but has an internal limit of 
+  how many bytes one can append to it.
+
+  Bytes that were truncated due to the size limitation are counted.
+*/
+
+class String_with_limit
+{
+public:
+
+  String_with_limit() : size_limit(SIZE_MAX), truncated_len(0)
+  {
+    str.length(0);
+  }
+
+  size_t get_truncated_bytes() const { return truncated_len; } 
+  size_t get_size_limit() { return size_limit; }
+
+  void set_size_limit(size_t limit_arg)
+  {
+    // Setting size limit to be shorter than length will not have the desired
+    // effect
+    DBUG_ASSERT(str.length() < size_limit);
+    size_limit= limit_arg;
+  }
+
+  void append(const char *s, size_t size)
+  {
+    if (str.length() + size <= size_limit)
+    {
+      // Whole string can be added, just do it
+      str.append(s, size);
+    }
+    else
+    {
+      // We cannot add the whole string
+      if (str.length() < size_limit)
+      {
+        // But we can still add something
+        size_t bytes_to_add = size_limit - str.length();
+        str.append(s, bytes_to_add);
+        truncated_len += size - bytes_to_add;
+      }
+      else
+        truncated_len += size;
+    }
+  }
+
+  void append(const char *s)
+  {
+    append(s, strlen(s));
+  }
+
+  void append(char c)
+  {
+    if (str.length() + 1 > size_limit)
+      truncated_len++;
+    else
+      str.append(c);
+  }
+
+  const String *get_string() { return &str; }
+  size_t length() { return str.length(); }
+private:
+  String str;
+
+  // str must not get longer than this many bytes.
+  size_t size_limit;
+
+  // How many bytes were truncated from the string
+  size_t truncated_len;
+};
+
+/*
   A class to write well-formed JSON documents. The documents are also formatted
   for human readability.
 */
@@ -134,17 +208,18 @@ public:
   void end_object();
   void end_array();
   
-  void set_trace() { is_trace= TRUE; }
-  void set_allowed_mem_size(size_t mem_size) { allowed_mem_size = mem_size; }
-  size_t get_allowed_mem_size() { return allowed_mem_size; }
-  void add_missing_bytes(size_t length) { missing_bytes+= length; }
-  size_t get_missing_bytes() { return missing_bytes; }
-  bool append_to_trace(size_t length);
+  /*
+    One can set a limit of how large a JSON document should be.
+    Writes beyond that size will be counted, but will not be collected.
+  */
+  void set_size_limit(size_t mem_size) { output.set_size_limit(mem_size); }
+
+  // psergey: return how many bytes would be required to store everything
+  size_t get_truncated_bytes() { return output.get_truncated_bytes(); }
 
   Json_writer() : 
     indent_level(0), document_start(true), element_started(false), 
-    first_child(true), is_trace(FALSE), allowed_mem_size(0),
-    missing_bytes(0)
+    first_child(true), allowed_mem_size(0)
   {
     fmt_helper.init(this);
   }
@@ -158,13 +233,12 @@ private:
   bool document_start;
   bool element_started;
   bool first_child;
+
   /*
     True when we are using the optimizer trace
     FALSE otherwise
   */
-  bool is_trace;
   size_t allowed_mem_size;
-  size_t missing_bytes;
 
   Single_line_formatting_helper fmt_helper;
 
@@ -172,9 +246,8 @@ private:
   void start_element();
   void start_sub_element();
 
-  //const char *new_member_name;
 public:
-  String output;
+  String_with_limit output;
 };
 
 /* A class to add values to Json_writer_object and Json_writer_array */
