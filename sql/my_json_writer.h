@@ -338,6 +338,10 @@ public:
 
 /*
   RAII-based class to start/end writing a JSON object into the JSON document
+
+  There is "ignore mode": one can initialize Json_writer_object with a NULL
+  Json_writer argument, and then all its calls will do nothing. This is used
+  by optimizer trace which can be enabled or disabled. 
 */
 
 class Json_writer_object : public Json_writer_struct
@@ -453,7 +457,12 @@ public:
 
 /*
   RAII-based class to start/end writing a JSON array into the JSON document
+
+  There is "ignore mode": one can initialize Json_writer_array with a NULL
+  Json_writer argument, and then all its calls will do nothing. This is used
+  by optimizer trace which can be enabled or disabled. 
 */
+
 class Json_writer_array : public Json_writer_struct
 {
 public:
