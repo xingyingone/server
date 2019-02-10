@@ -1123,14 +1123,6 @@ public:
   /* record buf to resolve hash collisions for long UNIQUE constraints */
   uchar *check_unique_buf;
   handler *update_handler;  /* Handler used in case of update */
-  /*
-     In the case of write row for long unique we are unable to find
-     which key is violated. Because we in case of duplicate hash we never reach
-     handler write_row function. So print_error will always print that
-     key 0 is violated. We store which key is violated in this variable
-     by default this should be initialized to -1
-   */
-  int dupp_hash_key;
   uchar *write_row_record;		/* Used as optimisation in
 					   THD::write_row */
   uchar *insert_values;                  /* used by INSERT ... UPDATE */

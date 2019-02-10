@@ -4116,9 +4116,9 @@ uint handler::get_dup_key(int error)
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type != F_UNLCK);
   DBUG_ENTER("handler::get_dup_key");
+  if (table->s->long_unique_table && table->file->errkey < table->s->keys)
+    DBUG_RETURN(table->file->errkey);
   table->file->errkey  = (uint) -1;
-  if (table->dupp_hash_key != -1)
-    DBUG_RETURN(table->dupp_hash_key);
   if (error == HA_ERR_FOUND_DUPP_KEY ||
       error == HA_ERR_FOREIGN_DUPLICATE_KEY ||
       error == HA_ERR_FOUND_DUPP_UNIQUE || error == HA_ERR_NULL_IN_SPATIAL ||
@@ -6331,7 +6331,7 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
                          ptr, key_info->key_length)));
     if (is_same)
     {
-      table->dupp_hash_key= key_no;
+      table->file->errkey= key_no;
       error= HA_ERR_FOUND_DUPP_KEY;
       goto exit;
     }
@@ -6340,7 +6340,7 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
   }
   if (result == HA_ERR_LOCK_WAIT_TIMEOUT)
   {
-    table->dupp_hash_key= key_no;
+    table->file->errkey= key_no;
     //TODO check if this is the only case
     error= HA_ERR_FOUND_DUPP_KEY;
   }
@@ -6356,7 +6356,7 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
   */
 static int check_duplicate_long_entries(TABLE *table, handler *h, uchar *new_rec)
 {
-  table->dupp_hash_key= -1;
+  table->file->errkey= -1;
   int result;
   for (uint i= 0; i < table->s->keys; i++)
   {
