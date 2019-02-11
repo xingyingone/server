@@ -631,8 +631,14 @@ void Json_writer::add_table_name(const JOIN_TAB *tab)
     }
   }
   else
-    add_null();
+    DBUG_ASSERT(0);
 }
+
+void Json_writer::add_table_name(const TABLE *table)
+{
+  add_str(table->pos_in_table_list->alias.str);
+}
+
 
 void add_table_scan_values_to_trace(Opt_trace_context* trace, JOIN_TAB *tab)
 {

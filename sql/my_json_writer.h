@@ -191,6 +191,7 @@ public:
   void add_str(const String &str);
   void add_str(Item *item);
   void add_table_name(const JOIN_TAB *tab);
+  void add_table_name(const TABLE* table);
 
   void add_ll(longlong val);
   void add_size(longlong val);
@@ -313,6 +314,11 @@ public:
     if (writer)
       writer->add_table_name(tab);
   }
+  void add_table_name(const TABLE* table)
+  {
+    if (writer)
+      writer->add_table_name(table);
+  }
 };
 
 /* A common base for Json_writer_object and Json_writer_array */
@@ -434,6 +440,13 @@ public:
     context.add_table_name(tab);
     return *this;
   }
+  Json_writer_object& add_table_name(const TABLE *table)
+  {
+    DBUG_ASSERT(!closed);
+    add_member("table");
+    context.add_table_name(table);
+    return *this;
+  }
   Json_writer_object& add_select_number(uint select_number)
   {
     DBUG_ASSERT(!closed);
@@ -542,6 +555,12 @@ public:
   {
     DBUG_ASSERT(!closed);
     context.add_table_name(tab);
+    return *this;
+  }
+  Json_writer_array& add_table_name(const TABLE *table)
+  {
+    DBUG_ASSERT(!closed);
+    context.add_table_name(table);
     return *this;
   }
   ~Json_writer_array();

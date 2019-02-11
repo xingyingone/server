@@ -2683,7 +2683,10 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
   Opt_trace_context *const trace = &thd->opt_trace;
   Json_writer* writer= trace->get_current_json();
   Json_writer_object table_records(writer);
-  table_records.add_table_name(head->reginfo.join_tab);
+  if (head->reginfo.join_tab)
+    table_records.add_table_name(head->reginfo.join_tab);
+  else
+    table_records.add_table_name(head);
   Json_writer_object trace_range(writer, "range_analysis");
   {
     Json_writer_object table_rec(writer, "table_scan");

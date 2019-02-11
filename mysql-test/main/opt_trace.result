@@ -3362,3 +3362,70 @@ select * from t1		1889	0
 drop table t1;
 set optimizer_trace='enabled=off';
 set @@optimizer_trace_max_mem_size= @save_optimizer_trace_max_mem_size;
+#
+# MDEV-18527: Optimizer trace for DELETE query shows table:null
+#
+create table ten(a int);
+insert into ten values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t0 (a int, b int);
+insert into t0 select a,a from ten;
+alter table t0 add key(a);
+set optimizer_trace=1;
+explain delete from t0 where t0.a<3;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t0	range	a	a	5	NULL	3	Using where
+select * from information_schema.optimizer_trace;
+QUERY	TRACE	MISSING_BYTES_BEYOND_MAX_MEM_SIZE	INSUFFICIENT_PRIVILEGES
+explain delete from t0 where t0.a<3	{
+  "steps": [
+    {
+      "table": "t0",
+      "range_analysis": {
+        "table_scan": {
+          "rows": 10,
+          "cost": 6.122
+        },
+        "potential_range_indexes": [
+          {
+            "index": "a",
+            "usable": true,
+            "key_parts": ["a"]
+          }
+        ],
+        "setup_range_conditions": [],
+        "group_index_range": {
+          "chosen": false,
+          "cause": "no_join"
+        },
+        "analyzing_range_alternatives": {
+          "range_scan_alternatives": [
+            {
+              "index": "a",
+              "ranges": ["NULL < a < 3"],
+              "rowid_ordered": false,
+              "using_mrr": false,
+              "index_only": false,
+              "rows": 3,
+              "cost": 4.61,
+              "chosen": true
+            }
+          ],
+          "analyzing_index_merge_union": []
+        },
+        "chosen_range_access_summary": {
+          "range_access_plan": {
+            "type": "range_scan",
+            "index": "a",
+            "rows": 3,
+            "ranges": ["NULL < a < 3"]
+          },
+          "rows_for_plan": 3,
+          "cost_for_plan": 4.61,
+          "chosen": true
+        }
+      }
+    }
+  ]
+}	0	0
+drop table ten,t0;
+set optimizer_trace='enabled=off';

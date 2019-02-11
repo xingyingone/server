@@ -27248,7 +27248,10 @@ test_if_cheaper_ordering(const JOIN_TAB *tab, ORDER *order, TABLE *table,
     set_if_bigger(refkey_rows_estimate, 1);
   }
 
-  trace_cheaper_ordering.add_table_name(tab);
+  if (tab)
+    trace_cheaper_ordering.add_table_name(tab);
+  else
+    trace_cheaper_ordering.add_table_name(table);
   trace_cheaper_ordering.add("rows_estimation", refkey_rows_estimate);
 
   Json_writer_array possible_keys(writer,"possible_keys");
