@@ -746,7 +746,7 @@ static bool create_key_infos(const uchar *strpos, const uchar *frm_image_end,
     if (i == 0)
     {
       ext_key_parts+= (share->use_ext_keys ? first_keyinfo->user_defined_key_parts*(keys-1) : 0); 
-      n_length=keys * sizeof(KEY) + (ext_key_parts) * sizeof(KEY_PART_INFO);
+      n_length=keys * sizeof(KEY) + ext_key_parts * sizeof(KEY_PART_INFO);
       if (!(keyinfo= (KEY*) alloc_root(&share->mem_root,
 				       n_length + len)))
         return 1;
@@ -8728,6 +8728,8 @@ int fields_in_hash_keyinfo(KEY *keyinfo)
 
 void setup_keyinfo_hash(KEY *key_info)
 {
+  DBUG_ASSERT(key_info->algorithm == HA_KEY_ALG_LONG_HASH);
+  DBUG_ASSERT(key_info->key_part->field->flags & LONG_UNIQUE_HASH_FIELD);
   uint no_of_keyparts= fields_in_hash_keyinfo(key_info);
   key_info->key_part-= no_of_keyparts;
   key_info->user_defined_key_parts= key_info->usable_key_parts=
@@ -8736,6 +8738,8 @@ void setup_keyinfo_hash(KEY *key_info)
 
 void re_setup_keyinfo_hash(KEY *key_info)
 {
+  DBUG_ASSERT(key_info->algorithm == HA_KEY_ALG_LONG_HASH);
+  DBUG_ASSERT(!(key_info->key_part->field->flags & LONG_UNIQUE_HASH_FIELD));
   while(!(key_info->key_part->field->flags & LONG_UNIQUE_HASH_FIELD))
     key_info->key_part++;
   key_info->user_defined_key_parts= key_info->usable_key_parts=

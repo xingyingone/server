@@ -2306,7 +2306,7 @@ int show_create_table(THD *thd, TABLE_LIST *table_list, String *packet,
       */
       packet->append(STRING_WITH_LEN("PRIMARY KEY"));
     }
-    else if (key_info->flags & HA_NOSAME || key_info->algorithm == HA_KEY_ALG_LONG_HASH)
+    else if (key_info->flags & HA_NOSAME)
       packet->append(STRING_WITH_LEN("UNIQUE KEY "));
     else if (key_info->flags & HA_FULLTEXT)
       packet->append(STRING_WITH_LEN("FULLTEXT KEY "));
@@ -6569,9 +6569,7 @@ static int get_schema_stat_record(THD *thd, TABLE_LIST *tables,
         table->field[1]->store(db_name->str, db_name->length, cs);
         table->field[2]->store(table_name->str, table_name->length, cs);
         table->field[3]->store((longlong) ((key_info->flags &
-                                            HA_NOSAME ||
-                                            key_info->algorithm == HA_KEY_ALG_LONG_HASH)
-                                            ? 0 : 1), TRUE);
+                                            HA_NOSAME) ? 0 : 1), TRUE);
         table->field[4]->store(db_name->str, db_name->length, cs);
         table->field[5]->store(key_info->name.str, key_info->name.length, cs);
         table->field[6]->store((longlong) (j+1), TRUE);
@@ -6859,8 +6857,7 @@ static int get_schema_constraints_record(THD *thd, TABLE_LIST *tables,
                            HA_STATUS_TIME);
     for (uint i=0 ; i < show_table->s->keys ; i++, key_info++)
     {
-      if (i != primary_key && !(key_info->flags & HA_NOSAME)
-              && key_info->algorithm != HA_KEY_ALG_LONG_HASH)
+      if (i != primary_key && !(key_info->flags & HA_NOSAME))
         continue;
 
       if (i == primary_key && !strcmp(key_info->name.str, primary_key_name))
@@ -6870,7 +6867,7 @@ static int get_schema_constraints_record(THD *thd, TABLE_LIST *tables,
                               STRING_WITH_LEN("PRIMARY KEY")))
           DBUG_RETURN(1);
       }
-      else if (key_info->flags & HA_NOSAME || key_info->algorithm == HA_KEY_ALG_LONG_HASH)
+      else if (key_info->flags & HA_NOSAME)
       {
         if (store_constraints(thd, table, db_name, table_name,
                               key_info->name.str, key_info->name.length,
@@ -7058,8 +7055,7 @@ static int get_schema_key_column_usage_record(THD *thd,
                            HA_STATUS_TIME);
     for (uint i=0 ; i < show_table->s->keys ; i++, key_info++)
     {
-      if (i != primary_key && !(key_info->flags & HA_NOSAME)
-              && key_info->algorithm != HA_KEY_ALG_LONG_HASH)
+      if (i != primary_key && !(key_info->flags & HA_NOSAME))
         continue;
       uint f_idx= 0;
       KEY_PART_INFO *key_part= key_info->key_part;

@@ -43,7 +43,7 @@ while ($trial)
   --connect (con2,localhost,root,,)
   --send CALL p_analyze()
 
-  --let $run = 1
+  --let $run = 100
 
   while ($run)
   {
