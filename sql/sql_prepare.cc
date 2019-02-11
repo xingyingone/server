@@ -2282,9 +2282,8 @@ static bool check_prepared_statement(Prepared_statement *stmt)
                       thd->query(), thd->query_length(),
                       thd->variables.character_set_client);
 
-  Json_writer *writer= thd->opt_trace.get_current_json();
-  Json_writer_object trace_command(writer);
-  Json_writer_array trace_command_steps(writer, "steps");
+  Json_writer_object trace_command(thd);
+  Json_writer_array trace_command_steps(thd, "steps");
 
   /* Reset warning count for each query that uses tables */
   if (tables)

@@ -2261,8 +2261,6 @@ void TRP_RANGE::trace_basic_info(const PARAM *param,
                                  Json_writer_object *trace_object) const
 {
   DBUG_ASSERT(param->using_real_indexes);
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
   const uint keynr_in_table = param->real_keynr[key_idx];
 
   const KEY &cur_key = param->table->key_info[keynr_in_table];
@@ -2272,7 +2270,7 @@ void TRP_RANGE::trace_basic_info(const PARAM *param,
                .add("index", cur_key.name)
                .add("rows", records);
 
-  Json_writer_array trace_range(writer, "ranges");
+  Json_writer_array trace_range(param->thd, "ranges");
 
   // TRP_RANGE should not be created if there are no range intervals
   DBUG_ASSERT(key);
@@ -2328,13 +2326,12 @@ public:
 void TRP_ROR_UNION::trace_basic_info(const PARAM *param,
                                      Json_writer_object *trace_object) const
 {
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
+  THD *thd= param->thd;
   trace_object->add("type", "index_roworder_union");
-  Json_writer_array ota(writer, "union_of");
+  Json_writer_array smth_trace(thd, "union_of");
   for (TABLE_READ_PLAN **current = first_ror; current != last_ror; current++)
   {
-    Json_writer_object trp_info(writer);
+    Json_writer_object trp_info(thd);
     (*current)->trace_basic_info(param, &trp_info);
   }
 }
@@ -2364,14 +2361,13 @@ public:
 void TRP_INDEX_INTERSECT::trace_basic_info(const PARAM *param,
                                        Json_writer_object *trace_object) const
 {
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
+  THD *thd= param->thd;
   trace_object->add("type", "index_sort_intersect");
-  Json_writer_array ota(writer, "index_sort_intersect_of");
+  Json_writer_array smth_trace(thd, "index_sort_intersect_of");
   for (TRP_RANGE **current = range_scans; current != range_scans_end;
                                                           current++)
   {
-    Json_writer_object trp_info(writer);
+    Json_writer_object trp_info(thd);
     (*current)->trace_basic_info(param, &trp_info);
   }
 }
@@ -2398,13 +2394,12 @@ public:
 void TRP_INDEX_MERGE::trace_basic_info(const PARAM *param,
                                        Json_writer_object *trace_object) const
 {
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
+  THD *thd= param->thd;
   trace_object->add("type", "index_merge");
-  Json_writer_array ota(writer, "index_merge_of");
+  Json_writer_array smth_trace(thd, "index_merge_of");
   for (TRP_RANGE **current= range_scans; current != range_scans_end; current++)
   {
-    Json_writer_object trp_info(writer);
+    Json_writer_object trp_info(thd);
     (*current)->trace_basic_info(param, &trp_info);
   }
 }
@@ -2467,6 +2462,7 @@ public:
 void TRP_GROUP_MIN_MAX::trace_basic_info(const PARAM *param,
                                 Json_writer_object *trace_object) const
 {
+  THD *thd= param->thd;
   trace_object->add("type", "index_group").add("index", index_info->name);
 
   if (min_max_arg_part)
@@ -2481,10 +2477,8 @@ void TRP_GROUP_MIN_MAX::trace_basic_info(const PARAM *param,
                .add("cost", read_cost);
 
   const KEY_PART_INFO *key_part = index_info->key_part;
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
   {
-    Json_writer_array trace_keyparts(writer, "key_parts_used_for_access");
+    Json_writer_array trace_keyparts(thd, "key_parts_used_for_access");
     for (uint partno = 0; partno < used_key_parts; partno++)
     {
       const KEY_PART_INFO *cur_key_part = key_part + partno;
@@ -2492,7 +2486,7 @@ void TRP_GROUP_MIN_MAX::trace_basic_info(const PARAM *param,
     }
   }
 
-  Json_writer_array trace_range(writer, "ranges");
+  Json_writer_array trace_range(thd, "ranges");
 
   // can have group quick without ranges
   if (index_tree)
@@ -2680,16 +2674,14 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
 
   DBUG_PRINT("info",("Time to scan table: %g", read_time));
 
-  Opt_trace_context *const trace = &thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
-  Json_writer_object table_records(writer);
+  Json_writer_object table_records(thd);
   if (head->reginfo.join_tab)
     table_records.add_table_name(head->reginfo.join_tab);
   else
     table_records.add_table_name(head);
-  Json_writer_object trace_range(writer, "range_analysis");
+  Json_writer_object trace_range(thd, "range_analysis");
   {
-    Json_writer_object table_rec(writer, "table_scan");
+    Json_writer_object table_rec(thd, "table_scan");
     table_rec.add("rows", records).add("cost", read_time);
   }
 
@@ -2747,11 +2739,11 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
     key_info= head->key_info;
     uint max_key_len= 0;
 
-    Json_writer_array trace_idx(writer, "potential_range_indexes");
+    Json_writer_array trace_idx(thd, "potential_range_indexes");
 
     for (idx=0 ; idx < head->s->keys ; idx++, key_info++)
     {
-      Json_writer_object trace_idx_details(writer);
+      Json_writer_object trace_idx_details(thd);
       trace_idx_details.add("index", key_info->name);
       KEY_PART_INFO *key_part_info;
       uint n_key_parts= head->actual_n_key_parts(key_info);
@@ -2759,7 +2751,7 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
       if (!keys_to_use.is_set(idx))
       {
         trace_idx_details.add("usable", false)
-                         .add("cause", "not_applicable");
+                         .add("cause", "not applicable");
         continue;
       }
       if (key_info->flags & HA_FULLTEXT)
@@ -2772,7 +2764,7 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
       param.key[param.keys]=key_parts;
       key_part_info= key_info->key_part;
       uint cur_key_len= 0;
-      Json_writer_array trace_keypart(writer, "key_parts");
+      Json_writer_array trace_keypart(thd, "key_parts");
       for (uint part= 0 ; part < n_key_parts ; 
            part++, key_parts++, key_part_info++)
      {
@@ -2817,7 +2809,7 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
       DBUG_PRINT("info",  ("'all'+'using index' scan will be using key %d, "
                            "read time %g", key_for_use, key_read_time));
 
-      Json_writer_object trace_cov(writer, "best_covering_index_scan");
+      Json_writer_object trace_cov(thd, "best_covering_index_scan");
       bool chosen= FALSE;
       if (key_read_time < read_time)
       {
@@ -2837,7 +2829,7 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
     if (cond)
     {
       {
-        Json_writer_array trace_range_summary(writer,
+        Json_writer_array trace_range_summary(thd,
                                            "setup_range_conditions");
         tree= cond->get_mm_tree(&param, &cond);
       }
@@ -2871,9 +2863,9 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
     {
       param.table->quick_condition_rows= MY_MIN(group_trp->records,
                                              head->stat_records());
-      Json_writer_object grp_summary(writer, "best_group_range_summary");
+      Json_writer_object grp_summary(thd, "best_group_range_summary");
 
-      if (unlikely(trace->is_started()))
+      if (unlikely(thd->trace_started()))
         group_trp->trace_basic_info(&param, &grp_summary);
 
       if (group_trp->read_cost < best_read_time)
@@ -2896,7 +2888,7 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
       TRP_ROR_INTERSECT *rori_trp;
       TRP_INDEX_INTERSECT *intersect_trp;
       bool can_build_covering= FALSE;
-      Json_writer_object trace_range(writer, "analyzing_range_alternatives");
+      Json_writer_object trace_range(thd, "analyzing_range_alternatives");
 
       remove_nonrange_trees(&param, tree);
 
@@ -2964,7 +2956,7 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
         DBUG_PRINT("info",("No range reads possible,"
                            " trying to construct index_merge"));
         List_iterator_fast<SEL_IMERGE> it(tree->merges);
-        Json_writer_array trace_idx_merge(writer, "analyzing_index_merge_union");
+        Json_writer_array trace_idx_merge(thd, "analyzing_index_merge_union");
         while ((imerge= it++))
         {
           new_conj_trp= get_best_disjunct_quick(&param, imerge, best_read_time);
@@ -2999,12 +2991,12 @@ int SQL_SELECT::test_quick_select(THD *thd, key_map keys_to_use,
     possible_keys= param.possible_keys;
 
   free_mem:
-    if (unlikely(quick && best_trp && trace->is_started()))
+    if (unlikely(quick && best_trp && thd->trace_started()))
     {
-      Json_writer_object trace_range_summary(writer,
+      Json_writer_object trace_range_summary(thd,
                                            "chosen_range_access_summary");
       {
-        Json_writer_object trace_range_plan(writer, "range_access_plan");
+        Json_writer_object trace_range_plan(thd, "range_access_plan");
         best_trp->trace_basic_info(&param, &trace_range_plan);
       }
       trace_range_summary.add("rows_for_plan", quick->records)
@@ -3241,9 +3233,6 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
   double table_records= (double)table->stat_records(); 
   DBUG_ENTER("calculate_cond_selectivity_for_table");
 
-  Opt_trace_context *const trace = &thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
-
   table->cond_selectivity= 1.0;
 
   if (table_records == 0)
@@ -3277,8 +3266,8 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
     estimate sources.
   */
 
-  Json_writer_object trace_wrapper(writer);
-  Json_writer_array selectivity_for_indexes(writer, "selectivity_for_indexes");
+  Json_writer_object trace_wrapper(thd);
+  Json_writer_array selectivity_for_indexes(thd, "selectivity_for_indexes");
 
   for (keynr= 0;  keynr < table->s->keys; keynr++)
   {
@@ -3329,7 +3318,7 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
             not yet been accounted for.
           */
           table->cond_selectivity*= quick_cond_selectivity;
-          Json_writer_object selectivity_for_index(writer);
+          Json_writer_object selectivity_for_index(thd);
           selectivity_for_index.add("index_name", key_info->name)
                                .add("selectivity_from_index",
                                     quick_cond_selectivity);
@@ -3382,7 +3371,7 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
     supported by any index and selectivity of the range condition
     over the fields whose selectivity has not been set yet.
   */
-  Json_writer_array selectivity_for_columns(writer, "selectivity_for_columns");
+  Json_writer_array selectivity_for_columns(thd, "selectivity_for_columns");
 
   if (thd->variables.optimizer_use_condition_selectivity > 2 &&
       !bitmap_is_clear_all(used_fields) &&
@@ -3442,14 +3431,14 @@ bool calculate_cond_selectivity_for_table(THD *thd, TABLE *table, Item **cond)
       SEL_ARG *key= tree->keys[idx];
       if (key)
       {
-        Json_writer_object selectivity_for_column(writer);
+        Json_writer_object selectivity_for_column(thd);
         selectivity_for_column.add("column_name", key->field->field_name);
         if (key->type == SEL_ARG::IMPOSSIBLE)
         {
           rows= 0;
           table->reginfo.impossible_range= 1;
           selectivity_for_column.add("selectivity_from_histograms", rows);
-          selectivity_for_column.add("cause", "impossible_range");
+          selectivity_for_column.add("cause", "impossible range");
           goto free_alloc;
         }          
         else
@@ -5027,6 +5016,7 @@ TABLE_READ_PLAN *get_best_disjunct_quick(PARAM *param, SEL_IMERGE *imerge,
   ha_rows roru_total_records;
   double roru_intersect_part= 1.0;
   size_t n_child_scans;
+  THD *thd= param->thd;
   DBUG_ENTER("get_best_disjunct_quick");
   DBUG_PRINT("info", ("Full table scan cost: %g", read_time));
 
@@ -5052,10 +5042,8 @@ TABLE_READ_PLAN *get_best_disjunct_quick(PARAM *param, SEL_IMERGE *imerge,
                                              sizeof(TRP_RANGE*)*
                                              n_child_scans)))
     DBUG_RETURN(NULL);
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
-  Json_writer_object trace_best_disjunct(writer);
-  Json_writer_array to_merge(writer, "indexes_to_merge");
+  Json_writer_object trace_best_disjunct(thd);
+  Json_writer_array to_merge(thd, "indexes_to_merge");
   /*
     Collect best 'range' scan for each of disjuncts, and, while doing so,
     analyze possibility of ROR scans. Also calculate some values needed by
@@ -5067,7 +5055,7 @@ TABLE_READ_PLAN *get_best_disjunct_quick(PARAM *param, SEL_IMERGE *imerge,
   {
     DBUG_EXECUTE("info", print_sel_tree(param, *ptree, &(*ptree)->keys_map,
                                         "tree in SEL_IMERGE"););
-    Json_writer_object trace_idx(writer);
+    Json_writer_object trace_idx(thd);
     if (!(*cur_child= get_key_scans_params(param, *ptree, TRUE, FALSE, read_time)))
     {
       /*
@@ -5132,7 +5120,7 @@ TABLE_READ_PLAN *get_best_disjunct_quick(PARAM *param, SEL_IMERGE *imerge,
     roru_read_plans= (TABLE_READ_PLAN**)range_scans;
     trace_best_disjunct.add("use_roworder_union", true)
                        .add("cause",
-                            "always_cheaper_than_non_roworder_retrieval");
+                            "always cheaper than non roworder retrieval");
     goto skip_to_ror_scan;
   }
 
@@ -5232,15 +5220,15 @@ skip_to_ror_scan:
   roru_total_records= 0;
   cur_roru_plan= roru_read_plans;
 
-  Json_writer_array trace_analyze_ror(writer, "analyzing_roworder_scans");
+  Json_writer_array trace_analyze_ror(thd, "analyzing_roworder_scans");
 
   /* Find 'best' ROR scan for each of trees in disjunction */
   for (ptree= imerge->trees, cur_child= range_scans;
        ptree != imerge->trees_next;
        ptree++, cur_child++, cur_roru_plan++)
   {
-    Json_writer_object trp_info(writer);
-    if (unlikely(trace->is_started()))
+    Json_writer_object trp_info(thd);
+    if (unlikely(thd->trace_started()))
       (*cur_child)->trace_basic_info(param, &trp_info);
     /*
       Assume the best ROR scan is the one that has cheapest full-row-retrieval
@@ -5582,10 +5570,10 @@ ha_rows get_table_cardinality_for_index_intersect(TABLE *table)
 }
 
 static
-void print_keyparts(Json_writer *writer, KEY *key, uint key_parts)
+void print_keyparts(THD *thd, KEY *key, uint key_parts)
 {
   KEY_PART_INFO *part= key->key_part;
-  Json_writer_array keyparts= Json_writer_array(writer, "keyparts");
+  Json_writer_array keyparts= Json_writer_array(thd, "keyparts");
   for(uint i= 0; i < key_parts; i++, part++)
     keyparts.add(part->field->field_name);
 }
@@ -5642,8 +5630,7 @@ bool prepare_search_best_index_intersect(PARAM *param,
   INDEX_SCAN_INFO *cpk_scan= NULL;
   TABLE *table= param->table;
   uint n_index_scans= (uint)(tree->index_scans_end - tree->index_scans);
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
+  THD *thd= param->thd;
 
   if (n_index_scans <= 1)
     return 1;
@@ -5686,10 +5673,10 @@ bool prepare_search_best_index_intersect(PARAM *param,
   bzero(common->search_scans, sizeof(INDEX_SCAN_INFO *) * i);
 
   INDEX_SCAN_INFO **selected_index_scans= common->search_scans;
-  Json_writer_array potential_idx_scans(writer, "potential_index_scans");
+  Json_writer_array potential_idx_scans(thd, "potential_index_scans");
   for (i=0, index_scan= tree->index_scans; i < n_index_scans; i++, index_scan++)
   {
-    Json_writer_object idx_scan(writer);
+    Json_writer_object idx_scan(thd);
     uint used_key_parts= (*index_scan)->used_key_parts;
     KEY *key_info= (*index_scan)->key_info;
     idx_scan.add("index", key_info->name);
@@ -5697,14 +5684,14 @@ bool prepare_search_best_index_intersect(PARAM *param,
     if (*index_scan == cpk_scan)
     {
       idx_scan.add("chosen", "false")
-              .add("cause", "clustered_index_used_for_filtering");
+              .add("cause", "clustered index used for filtering");
       continue;
     }
     if (cpk_scan && cpk_scan->used_key_parts >= used_key_parts &&
         same_index_prefix(cpk_scan->key_info, key_info, used_key_parts))
     {
       idx_scan.add("chosen", "false")
-              .add("cause", "clustered_index_used_for_filtering");
+              .add("cause", "clustered index used for filtering");
       continue;
     }
 
@@ -5736,9 +5723,9 @@ bool prepare_search_best_index_intersect(PARAM *param,
     {
       idx_scan.add("chosen", true);
       if (!*scan_ptr)
-        idx_scan.add("cause", "first_occurence_of_index_prefix");
+        idx_scan.add("cause", "first occurence of index prefix");
       else
-        idx_scan.add("cause", "better_cost_for_same_idx_prefix");
+        idx_scan.add("cause", "better cost for same idx prefix");
       *scan_ptr= *index_scan;
       (*scan_ptr)->index_read_cost= cost;
     }
@@ -5787,7 +5774,7 @@ bool prepare_search_best_index_intersect(PARAM *param,
   my_qsort(selected_index_scans, n_search_scans, sizeof(INDEX_SCAN_INFO *),
            (qsort_cmp) cmp_intersect_index_scan);
 
-  Json_writer_array selected_idx_scans(writer, "selected_index_scans");
+  Json_writer_array selected_idx_scans(thd, "selected_index_scans");
   if (cpk_scan)
   {
     PARTIAL_INDEX_INTERSECT_INFO curr;
@@ -5805,11 +5792,11 @@ bool prepare_search_best_index_intersect(PARAM *param,
       ha_rows records= records_in_index_intersect_extension(&curr, *scan_ptr);
       (*scan_ptr)->filtered_out= records >= scan_records ?
                                    0 : scan_records-records;
-      if (trace->is_started())
+      if (thd->trace_started())
       {
-        Json_writer_object selected_idx(writer);
+        Json_writer_object selected_idx(thd);
         selected_idx.add("index", key_info->name);
-        print_keyparts(writer, key_info, (*scan_ptr)->used_key_parts);
+        print_keyparts(thd, key_info, (*scan_ptr)->used_key_parts);
         selected_idx.add("records", (*scan_ptr)->records)
                     .add("filtered_records", (*scan_ptr)->filtered_out);
       }
@@ -5821,11 +5808,11 @@ bool prepare_search_best_index_intersect(PARAM *param,
     {
       KEY *key_info= (*scan_ptr)->key_info;
       (*scan_ptr)->filtered_out= 0;
-      if (trace->is_started())
+      if (thd->trace_started())
       {
-        Json_writer_object selected_idx(writer);
+        Json_writer_object selected_idx(thd);
         selected_idx.add("index", key_info->name);
-        print_keyparts(writer, key_info, (*scan_ptr)->used_key_parts);
+        print_keyparts(thd, key_info, (*scan_ptr)->used_key_parts);
         selected_idx.add("records", (*scan_ptr)->records)
                     .add("filtered_records", (*scan_ptr)->filtered_out);
       }
@@ -6286,13 +6273,11 @@ TRP_INDEX_INTERSECT *get_best_index_intersect(PARAM *param, SEL_TREE *tree,
   PARTIAL_INDEX_INTERSECT_INFO init;
   TRP_INDEX_INTERSECT *intersect_trp= NULL;
   TABLE *table= param->table;
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
-  
+  THD *thd= param->thd;
   
   DBUG_ENTER("get_best_index_intersect");
 
-  Json_writer_object trace_idx_interect(writer, "analyzing_sort_intersect");
+  Json_writer_object trace_idx_interect(thd, "analyzing_sort_intersect");
 
   if (prepare_search_best_index_intersect(param, tree, &common, &init,
                                           read_time))
@@ -6376,27 +6361,26 @@ typedef struct st_ror_scan_info : INDEX_SCAN_INFO
 void TRP_ROR_INTERSECT::trace_basic_info(const PARAM *param,
                                          Json_writer_object *trace_object) const
 {
+  THD *thd= param->thd;
   trace_object->add("type", "index_roworder_intersect");
   trace_object->add("rows", records);
   trace_object->add("cost", read_cost);
   trace_object->add("covering", is_covering);
   trace_object->add("clustered_pk_scan", cpk_scan != NULL);
 
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
-  Json_writer_array ota(writer, "intersect_of");
+  Json_writer_array smth_trace(thd, "intersect_of");
   for (ROR_SCAN_INFO **cur_scan = first_scan; cur_scan != last_scan;
                                                          cur_scan++)
   {
     const KEY &cur_key = param->table->key_info[(*cur_scan)->keynr];
     const KEY_PART_INFO *key_part = cur_key.key_part;
 
-    Json_writer_object trace_isect_idx(writer);
+    Json_writer_object trace_isect_idx(thd);
     trace_isect_idx.add("type", "range_scan");
     trace_isect_idx.add("index", cur_key.name);
     trace_isect_idx.add("rows", (*cur_scan)->records);
 
-    Json_writer_array trace_range(writer, "ranges");
+    Json_writer_array trace_range(thd, "ranges");
     for (const SEL_ARG *current = (*cur_scan)->sel_arg->first(); current;
                                                  current = current->next)
     {
@@ -6940,15 +6924,14 @@ TRP_ROR_INTERSECT *get_best_ror_intersect(const PARAM *param, SEL_TREE *tree,
   uint idx;
   double min_cost= DBL_MAX;
   DBUG_ENTER("get_best_ror_intersect");
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
-  Json_writer_object trace_ror(writer, "analyzing_roworder_intersect");
+  THD *thd= param->thd;
+  Json_writer_object trace_ror(thd, "analyzing_roworder_intersect");
 
   if ((tree->n_ror_scans < 2) || !param->table->stat_records() ||
       !optimizer_flag(param->thd, OPTIMIZER_SWITCH_INDEX_MERGE_INTERSECT))
     {
       if (tree->n_ror_scans < 2)
-        trace_ror.add("cause", "too_few_roworder_scans");
+        trace_ror.add("cause", "too few roworder scans");
       DBUG_RETURN(NULL);
     }
 
@@ -7025,10 +7008,10 @@ TRP_ROR_INTERSECT *get_best_ror_intersect(const PARAM *param, SEL_TREE *tree,
   ROR_SCAN_INFO **intersect_scans_best;
   cur_ror_scan= tree->ror_scans;
   intersect_scans_best= intersect_scans;
-  Json_writer_array trace_isect_idx(writer, "intersecting_indexes");
+  Json_writer_array trace_isect_idx(thd, "intersecting_indexes");
   while (cur_ror_scan != tree->ror_scans_end && !intersect->is_covering)
   {
-    Json_writer_object trace_idx(writer);
+    Json_writer_object trace_idx(thd);
     trace_idx.add("index",
                  param->table->key_info[(*cur_ror_scan)->keynr].name);
 
@@ -7036,7 +7019,7 @@ TRP_ROR_INTERSECT *get_best_ror_intersect(const PARAM *param, SEL_TREE *tree,
     if (!ror_intersect_add(intersect, *cur_ror_scan, &trace_idx, FALSE))
     {
       trace_idx.add("usable", false)
-               .add("cause", "does_not_reduce_cost_of_intersect");
+               .add("cause", "does not reduce cost of intersect");
       cur_ror_scan++;
       continue;
     }
@@ -7059,7 +7042,7 @@ TRP_ROR_INTERSECT *get_best_ror_intersect(const PARAM *param, SEL_TREE *tree,
     else
     {
       trace_idx.add("chosen", false)
-               .add("cause", "does_not_reduce_cost");
+               .add("cause", "does not reduce cost");
     }
   }
   trace_isect_idx.end();
@@ -7068,7 +7051,7 @@ TRP_ROR_INTERSECT *get_best_ror_intersect(const PARAM *param, SEL_TREE *tree,
   {
     DBUG_PRINT("info", ("None of scans increase selectivity"));
     trace_ror.add("chosen", false)
-             .add("cause","does_not_increase_selectivity");
+             .add("cause","does not increase selectivity");
     DBUG_RETURN(NULL);
   }
     
@@ -7086,7 +7069,7 @@ TRP_ROR_INTERSECT *get_best_ror_intersect(const PARAM *param, SEL_TREE *tree,
     Check if we should add a CPK scan. If the obtained ROR-intersection is 
     covering, it doesn't make sense to add CPK scan.
   */
-  Json_writer_object trace_cpk(writer, "clustered_pk");
+  Json_writer_object trace_cpk(thd, "clustered_pk");
   if (cpk_scan && !intersect->is_covering)
   {
     if (ror_intersect_add(intersect, cpk_scan, &trace_cpk, TRUE) &&
@@ -7106,8 +7089,8 @@ TRP_ROR_INTERSECT *get_best_ror_intersect(const PARAM *param, SEL_TREE *tree,
   else
   {
     trace_cpk.add("clustered_pk_added_to_intersect", false)
-             .add("cause", cpk_scan ? "roworder_is_covering"
-                                    : "no_clustered_pk_index");
+             .add("cause", cpk_scan ? "roworder is covering"
+                                    : "no clustered pk index");
     cpk_scan= 0;                                // Don't use cpk_scan
   }
   trace_cpk.end();
@@ -7146,7 +7129,7 @@ TRP_ROR_INTERSECT *get_best_ror_intersect(const PARAM *param, SEL_TREE *tree,
   {
     trace_ror.add("chosen", false)
              .add("cause", (read_time > min_cost)
-                            ? "too_few_indexes_to_merge"
+                            ? "too few indexes to merge"
                             : "cost");
   }
   DBUG_RETURN(trp);
@@ -7335,8 +7318,7 @@ static TRP_RANGE *get_key_scans_params(PARAM *param, SEL_TREE *tree,
           UNINIT_VAR(best_buf_size);             /* protected by key_to_read */
   TRP_RANGE* read_plan= NULL;
   DBUG_ENTER("get_key_scans_params");
-  Opt_trace_context *const trace = &param->thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
+  THD *thd= param->thd;
   /*
     Note that there may be trees that have type SEL_TREE::KEY but contain no
     key reads at all, e.g. tree for expression "key1 is not null" where key1
@@ -7344,7 +7326,7 @@ static TRP_RANGE *get_key_scans_params(PARAM *param, SEL_TREE *tree,
   */
   DBUG_EXECUTE("info", print_sel_tree(param, tree, &tree->keys_map,
                                       "tree scans"););
-  Json_writer_array range_scan_alt(writer, "range_scan_alternatives");
+  Json_writer_array range_scan_alt(thd, "range_scan_alternatives");
 
   tree->ror_scans_map.clear_all();
   tree->n_ror_scans= 0;
@@ -7374,7 +7356,7 @@ static TRP_RANGE *get_key_scans_params(PARAM *param, SEL_TREE *tree,
       bool read_index_only= index_read_must_be_used ? TRUE :
                             (bool) param->table->covering_keys.is_set(keynr);
 
-      Json_writer_object trace_idx(writer);
+      Json_writer_object trace_idx(thd);
       trace_idx.add("index", param->table->key_info[keynr].name);
 
       found_records= check_quick_select(param, idx, read_index_only, key,
@@ -7385,7 +7367,7 @@ static TRP_RANGE *get_key_scans_params(PARAM *param, SEL_TREE *tree,
           (index_scan= (INDEX_SCAN_INFO *)alloc_root(param->mem_root,
 						     sizeof(INDEX_SCAN_INFO))))
       {
-        Json_writer_array trace_range(writer, "ranges");
+        Json_writer_array trace_range(thd, "ranges");
 
         const KEY &cur_key = param->table->key_info[keynr];
         const KEY_PART_INFO *key_part = cur_key.key_part;
@@ -7402,7 +7384,7 @@ static TRP_RANGE *get_key_scans_params(PARAM *param, SEL_TREE *tree,
         index_scan->sel_arg= key;
         *tree->index_scans_end++= index_scan;
 
-        if (trace->is_started())
+        if (unlikely(thd->trace_started()))
           append_range_all_keyparts(&trace_range, NULL, &range_info, key,
                                     key_part);
         trace_range.end();
@@ -7434,7 +7416,7 @@ static TRP_RANGE *get_key_scans_params(PARAM *param, SEL_TREE *tree,
         trace_idx.add("chosen", false);
         if (found_records == HA_POS_ERROR)
           if (key->type == SEL_ARG::Type::MAYBE_KEY)
-            trace_idx.add("cause", "depends_on_unread_values");
+            trace_idx.add("cause", "depends on unread values");
           else
             trace_idx.add("cause", "unknown");
         else
@@ -13073,23 +13055,21 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
 
   DBUG_ENTER("get_best_group_min_max");
 
-  Opt_trace_context* trace= &thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
-  Json_writer_object trace_group(writer, "group_index_range");
+  Json_writer_object trace_group(thd, "group_index_range");
   const char* cause= NULL;
 
   /* Perform few 'cheap' tests whether this access method is applicable. */
   if (!join) /* This is not a select statement. */
-    cause= "no_join";
+    cause= "no join";
   else if (join->table_count != 1)  /* The query must reference one table. */
-    cause= "not_single_table";
+    cause= "not single_table";
   else if (join->select_lex->olap == ROLLUP_TYPE) /* Check (B3) for ROLLUP */
     cause= "rollup";
   else if (table->s->keys == 0) /* There are no indexes to use. */
-    cause= "no_index";
+    cause= "no index";
   else if (join->conds && join->conds->used_tables()
           & OUTER_REF_TABLE_BIT) /* Cannot execute with correlated conditions. */
-    cause= "correlated_conditions";
+    cause= "correlated conditions";
 
   if (cause)
   {
@@ -13105,7 +13085,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
       (!join->select_distinct) &&
       !is_agg_distinct)
   {
-    trace_group.add("chosen", false).add("cause","no_group_by_or_distinct");
+    trace_group.add("chosen", false).add("cause","no group by or distinct");
     DBUG_RETURN(NULL);
   }
   /* Analyze the query in more detail. */
@@ -13128,7 +13108,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
       else
       {
         trace_group.add("chosen", false)
-                   .add("cause", "not_applicable_aggregate_function");
+                   .add("cause", "not applicable aggregate function");
         DBUG_RETURN(NULL);
       }
 
@@ -13141,14 +13121,14 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
         else if (! min_max_arg_item->eq(expr, 1))
         {
           trace_group.add("chosen", false)
-                     .add("cause", "arguments_different_in_min_max_function");
+                     .add("cause", "arguments different in min max function");
           DBUG_RETURN(NULL);
         }
       }
       else
       {
         trace_group.add("chosen", false)
-                   .add("cause", "no_field_item_in_min_max_function");
+                   .add("cause", "no field item in min max function");
         DBUG_RETURN(NULL);
       }
     }
@@ -13158,7 +13138,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
   if (is_agg_distinct && (have_max || have_min))
   {
     trace_group.add("chosen", false)
-               .add("cause", "have_both_agg_distinct_and_min_max");
+               .add("cause", "have both agg distinct and min max");
     DBUG_RETURN(NULL);
   }
 
@@ -13171,7 +13151,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
       if (item->real_item()->type() != Item::FIELD_ITEM)
       {
         trace_group.add("chosen", false)
-                   .add("cause", "distinct_field_is_expression");
+                   .add("cause", "distinct field is expression");
         DBUG_RETURN(NULL);
       }
     }
@@ -13184,7 +13164,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
     if ((*tmp_group->item)->real_item()->type() != Item::FIELD_ITEM)
     {
       trace_group.add("chosen", false)
-                 .add("cause", "group_field_is_expression");
+                 .add("cause", "group field is expression");
       DBUG_RETURN(NULL);
     }
     elements_in_group++;
@@ -13208,14 +13188,14 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
   ha_rows cur_quick_prefix_records= 0;
 
   // We go through allowed indexes
-  Json_writer_array trace_indexes(writer, "potential_group_range_indexes");
+  Json_writer_array trace_indexes(thd, "potential_group_range_indexes");
 
   for (uint cur_param_idx= 0; cur_param_idx < param->keys ; ++cur_param_idx)
   {
     const uint cur_index= param->real_keynr[cur_param_idx];
     KEY *const cur_index_info= &table->key_info[cur_index];
 
-    Json_writer_object trace_idx(writer);
+    Json_writer_object trace_idx(thd);
     trace_idx.add("index", cur_index_info->name);
 
     KEY_PART_INFO *cur_part;
@@ -13243,7 +13223,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
     if (!table->covering_keys.is_set(cur_index) ||
         !table->keys_in_use_for_group_by.is_set(cur_index))
     {
-      cause= "not_covering";
+      cause= "not covering";
       goto next_index;
     }
     
@@ -13254,7 +13234,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
     */
     if (elements_in_group > table->actual_n_key_parts(cur_index_info))
     {
-      cause= "group_key_parts_greater_than_index_key_parts";
+      cause= "group key parts greater than index key parts";
       goto next_index;
     }
     
@@ -13283,7 +13263,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
         if (bitmap_is_set(table->read_set, cur_field->field_index) &&
             !cur_field->part_of_key_not_clustered.is_set(cur_index))
         {
-          cause= "not_covering";
+          cause= "not covering";
           goto next_index;                  // Field was not part of key
         }
       }
@@ -13322,7 +13302,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
         }
         else
         {
-          cause= "group_attribute_not_prefix_in_index";
+          cause= "group attribute not prefix in index";
           goto next_index;
         }
       }
@@ -13354,7 +13334,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
         /* not doing loose index scan for derived tables */
         if (!item_field->field)
         {
-          cause= "derived_table";
+          cause= "derived table";
           goto next_index;
         }
 
@@ -13369,7 +13349,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
         if (key_part_nr < 1 ||
             (!is_agg_distinct && key_part_nr > join->fields_list.elements))
         {
-          cause= "select_attribute_not_prefix_in_index";
+          cause= "select attribute not prefix in index";
           goto next_index;
         }
         cur_part= cur_index_info->key_part + key_part_nr - 1;
@@ -13397,7 +13377,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
       key_part_nr= get_field_keypart(cur_index_info, min_max_arg_item->field);
       if (key_part_nr <= cur_group_key_parts)
       {
-        cause = "aggregate_column_not_suffix_in_idx";
+        cause = "aggregate column not suffix in idx";
         goto next_index;
       }
       min_max_arg_part= cur_index_info->key_part + key_part_nr - 1;
@@ -13410,7 +13390,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
     if (cur_index_info->flags & HA_NOSAME && 
         cur_group_key_parts == cur_index_info->user_defined_key_parts)
     {
-      cause= "using_unique_index";
+      cause= "using unique index";
       goto next_index;
     }
 
@@ -13451,7 +13431,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
                                     &cur_key_infix_len,
                                     &first_non_infix_part))
         {
-          cause = "nonconst_equality_gap_attribute";
+          cause = "nonconst equality gap attribute";
           goto next_index;
         }
       }
@@ -13462,7 +13442,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
           There is a gap but no range tree, thus no predicates at all for the
           non-group keyparts.
         */
-        cause = "no_nongroup_keypart_predicate";
+        cause = "no nongroup keypart predicate";
         goto next_index;
       }
       else if (first_non_group_part && join->conds)
@@ -13487,7 +13467,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
         if (join->conds->walk(&Item::find_item_in_field_list_processor, 0,
                               key_part_range))
         {
-          cause = "keypart_reference_from_where_clause";
+          cause = "keypart reference from where clause";
           goto next_index;
         }
       }
@@ -13505,7 +13485,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
       {
         if (bitmap_is_set(table->read_set, cur_part->field->field_index))
         {
-          cause = "keypart_after_infix_in_query";
+          cause = "keypart after infix in query";
           goto next_index;
         }
       }
@@ -13524,7 +13504,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
                                   index_range_tree, &cur_range) ||
           (cur_range && cur_range->type != SEL_ARG::KEY_RANGE))
       {
-        cause = "minmax_keypart_in_disjunctive_query";
+        cause = "minmax keypart in disjunctive query";
         goto next_index;
       }
     }
@@ -13547,9 +13527,9 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
                                                    cur_index_tree, TRUE,
                                                    &mrr_flags, &mrr_bufsize,
                                                    &dummy_cost);
-      if (unlikely(cur_index_tree && trace->is_started()))
+      if (unlikely(cur_index_tree && thd->trace_started()))
       {
-        Json_writer_array trace_range(writer, "ranges");
+        Json_writer_array trace_range(thd, "ranges");
 
         const KEY_PART_INFO *key_part = cur_index_info->key_part;
 
@@ -13609,7 +13589,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
                                       &has_min_max_fld, &has_other_fld))
   {
     trace_group.add("usable", false)
-               .add("cause", "unsupported_predicate_on_agg_attribute");
+               .add("cause", "unsupported predicate on agg attribute");
     DBUG_RETURN(NULL);
   }
 
@@ -13620,7 +13600,7 @@ get_best_group_min_max(PARAM *param, SEL_TREE *tree, double read_time)
       table->file->primary_key_is_clustered())
   {
     trace_group.add("usable", false)
-               .add("cause", "index_is_clustered");
+               .add("cause", "index is clustered");
     DBUG_RETURN(NULL);
   }
 

@@ -658,14 +658,12 @@ Memory allocated by threads:             %s\n",
 
 void print_keyuse_array_for_trace(THD *thd, DYNAMIC_ARRAY *keyuse_array)
 {
-  Opt_trace_context *const trace = &thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
-  Json_writer_object wrapper(writer);
-  Json_writer_array trace_key_uses(writer, "ref_optimizer_key_uses");
+  Json_writer_object wrapper(thd);
+  Json_writer_array trace_key_uses(thd, "ref_optimizer_key_uses");
   for(uint i=0; i < keyuse_array->elements; i++)
   {
     KEYUSE *keyuse= (KEYUSE*)dynamic_array_ptr(keyuse_array, i);
-    Json_writer_object keyuse_elem(writer);
+    Json_writer_object keyuse_elem(thd);
     keyuse_elem.add_table_name(keyuse->table->reginfo.join_tab);
     keyuse_elem.add("field", (keyuse->keypart == FT_KEYPART) ? "<fulltext>"
                                       : (keyuse->is_for_hash_join()

@@ -101,7 +101,7 @@ public:
 
 
 /*
-  Something that looks like class String, but has an internal limit of 
+  Something that looks like class String, but has an internal limit of
   how many bytes one can append to it.
 
   Bytes that were truncated due to the size limitation are counted.
@@ -116,7 +116,7 @@ public:
     str.length(0);
   }
 
-  size_t get_truncated_bytes() const { return truncated_len; } 
+  size_t get_truncated_bytes() const { return truncated_len; }
   size_t get_size_limit() { return size_limit; }
 
   void set_size_limit(size_t limit_arg)
@@ -252,7 +252,7 @@ public:
 };
 
 /* A class to add values to Json_writer_object and Json_writer_array */
-class Json_value_context
+class Json_value_helper
 {
   Json_writer* writer;
 
@@ -326,17 +326,17 @@ class Json_writer_struct
 {
 protected:
   Json_writer* my_writer;
-  Json_value_context context;
+  Json_value_helper context;
   /*
     Tells when a json_writer_struct has been closed or not
   */
   bool closed;
 
 public:
-  explicit Json_writer_struct(Json_writer* writer)
+  explicit Json_writer_struct(THD *thd)
   {
-    my_writer= writer;
-    context.init(writer);
+    my_writer= thd->opt_trace.get_current_json();
+    context.init(my_writer);
     closed= false;
   }
 };
@@ -347,7 +347,7 @@ public:
 
   There is "ignore mode": one can initialize Json_writer_object with a NULL
   Json_writer argument, and then all its calls will do nothing. This is used
-  by optimizer trace which can be enabled or disabled. 
+  by optimizer trace which can be enabled or disabled.
 */
 
 class Json_writer_object : public Json_writer_struct
@@ -359,8 +359,8 @@ private:
       my_writer->add_member(name);
   }
 public:
-  explicit Json_writer_object(Json_writer *w);
-  explicit Json_writer_object(Json_writer *w, const char *str);
+  explicit Json_writer_object(THD *thd);
+  explicit Json_writer_object(THD *thd, const char *str);
 
   Json_writer_object& add(const char *name, bool value)
   {
@@ -473,14 +473,14 @@ public:
 
   There is "ignore mode": one can initialize Json_writer_array with a NULL
   Json_writer argument, and then all its calls will do nothing. This is used
-  by optimizer trace which can be enabled or disabled. 
+  by optimizer trace which can be enabled or disabled.
 */
 
 class Json_writer_array : public Json_writer_struct
 {
 public:
-  Json_writer_array(Json_writer *w);
-  Json_writer_array(Json_writer *w, const char *str);
+  Json_writer_array(THD *thd);
+  Json_writer_array(THD *thd, const char *str);
   void end()
   {
     DBUG_ASSERT(!closed);

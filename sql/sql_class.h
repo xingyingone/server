@@ -3308,6 +3308,7 @@ public:
   void reset_for_reuse();
   bool store_globals();
   void reset_globals();
+  bool trace_started();
 #ifdef SIGNAL_WITH_VIO_CLOSE
   inline void set_active_vio(Vio* vio)
   {

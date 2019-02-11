@@ -103,9 +103,7 @@ void opt_trace_print_expanded_query(THD *thd, SELECT_LEX *select_lex,
                                     Json_writer_object *writer)
 
 {
-  Opt_trace_context *const trace = &thd->opt_trace;
-
-  if (!trace->is_started())
+  if (!thd->trace_started())
     return;
   char buff[1024];
   String str(buff, sizeof(buff), system_charset_info);
@@ -144,7 +142,7 @@ void opt_trace_disable_if_no_security_context_access(THD *thd)
     return;
   }
   Opt_trace_context *const trace = &thd->opt_trace;
-  if (!trace->is_started())
+  if (!thd->trace_started())
   {
     /*
       @@optimizer_trace has "enabled=on" but trace is not started.
@@ -200,14 +198,15 @@ void opt_trace_disable_if_no_stored_proc_func_access(THD *thd, sp_head *sp)
     return;
 
   Opt_trace_context *const trace = &thd->opt_trace;
-  if (!trace->is_started())
+  if (!thd->trace_started())
     return;
   bool full_access;
   Security_context *const backup_thd_sctx = thd->security_context();
   thd->set_security_context(&thd->main_security_ctx);
   const bool rc = check_show_routine_access(thd, sp, &full_access) || !full_access;
   thd->set_security_context(backup_thd_sctx);
-  if (rc) trace->missing_privilege();
+  if (rc)
+    trace->missing_privilege();
   return;
 }
 
@@ -234,7 +233,7 @@ void opt_trace_disable_if_no_tables_access(THD *thd, TABLE_LIST *tbl)
     return;
   Opt_trace_context *const trace = &thd->opt_trace;
 
-  if (!trace->is_started())
+  if (!thd->trace_started())
     return;
 
   Security_context *const backup_thd_sctx = thd->security_context();
@@ -294,7 +293,7 @@ void opt_trace_disable_if_no_view_access(THD *thd, TABLE_LIST *view,
       thd->system_thread)
     return;
   Opt_trace_context *const trace = &thd->opt_trace;
-  if (!trace->is_started())
+  if (!thd->trace_started())
     return;
 
   Security_context *const backup_table_sctx = view->security_ctx;
@@ -642,12 +641,11 @@ void Json_writer::add_table_name(const TABLE *table)
 }
 
 
-void add_table_scan_values_to_trace(Opt_trace_context* trace, JOIN_TAB *tab)
+void add_table_scan_values_to_trace(THD *thd, JOIN_TAB *tab)
 {
-  Json_writer *writer= trace->get_current_json();
-  Json_writer_object table_records(writer);
+  Json_writer_object table_records(thd);
   table_records.add_table_name(tab);
-  Json_writer_object table_rec(writer, "table_scan");
+  Json_writer_object table_rec(thd, "table_scan");
   table_rec.add("rows", tab->found_records)
            .add("cost", tab->read_time);
 }

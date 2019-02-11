@@ -104,7 +104,7 @@ class Opt_trace_start {
 void opt_trace_print_expanded_query(THD *thd, SELECT_LEX *select_lex,
                                     Json_writer_object *trace_object);
 
-void add_table_scan_values_to_trace(Opt_trace_context* trace, JOIN_TAB *tab);
+void add_table_scan_values_to_trace(THD *thd, JOIN_TAB *tab);
 
 /*
   Security related (need to add a proper comment here)

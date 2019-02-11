@@ -3308,9 +3308,8 @@ sp_lex_keeper::reset_lex_and_exec_core(THD *thd, uint *nextp,
                         NULL, 0,
                         thd->variables.character_set_client);
 
-  Json_writer *writer= thd->opt_trace.get_current_json();
-  Json_writer_object trace_command(writer);
-  Json_writer_array trace_command_steps(writer, "steps");
+  Json_writer_object trace_command(thd);
+  Json_writer_array trace_command_steps(thd, "steps");
   if (open_tables)
     res= check_dependencies_in_with_clauses(m_lex->with_clauses_list) ||
          instr->exec_open_and_lock_tables(thd, m_lex->query_tables);

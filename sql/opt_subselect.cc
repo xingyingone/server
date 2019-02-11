@@ -572,8 +572,6 @@ int check_and_do_in_subquery_rewrites(JOIN *join)
   if (select_lex == select_lex->master_unit()->fake_select_lex)
     DBUG_RETURN(0);
 
-  Opt_trace_context *const trace = &thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
   /*
     If 
       1) this join is inside a subquery (of any type except FROM-clause 
@@ -699,7 +697,7 @@ int check_and_do_in_subquery_rewrites(JOIN *join)
         if (arena)
           thd->restore_active_arena(arena, &backup);
         in_subs->is_registered_semijoin= TRUE;
-        OPT_TRACE_TRANSFORM(writer, oto0, oto1, select_lex->select_number,
+        OPT_TRACE_TRANSFORM(thd, oto0, oto1, select_lex->select_number,
                             "IN (SELECT)", "semijoin");
         oto1.add("chosen", true);
       }
@@ -837,14 +835,12 @@ bool subquery_types_allow_materialization(THD* thd, Item_in_subselect *in_subs)
 
   List_iterator<Item> it(in_subs->unit->first_select()->item_list);
   uint elements= in_subs->unit->first_select()->item_list.elements;
-  Opt_trace_context *const trace = &thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
   const char* cause= NULL;
 
   in_subs->types_allow_materialization= FALSE;  // Assign default values
   in_subs->sjm_scan_allowed= FALSE;
 
-  OPT_TRACE_TRANSFORM(writer, oto0, oto1,
+  OPT_TRACE_TRANSFORM(thd, oto0, oto1,
                      in_subs->get_select_lex()->select_number,
                       "IN (SELECT)", "materialization");
   
@@ -861,7 +857,7 @@ bool subquery_types_allow_materialization(THD* thd, Item_in_subselect *in_subs)
                                                                      outer))
     {
       oto1.add("possible", false);
-      oto1.add("cause", "types_mismatch");
+      oto1.add("cause", "types mismatch");
       DBUG_RETURN(FALSE);
     }
   }
@@ -874,11 +870,11 @@ bool subquery_types_allow_materialization(THD* thd, Item_in_subselect *in_subs)
      greater than 0.
   */
   if (!total_key_length)
-    cause= "zero_length_key_for_materialized_table";
+    cause= "zero length key for materialized table";
   else if (total_key_length > tmp_table_max_key_length())
-    cause= "length_of_key_greater_than_allowed_key_length_for_materialized_tables";
+    cause= "length of key greater than allowed key length for materialized tables";
   else if (elements > tmp_table_max_key_parts())
-    cause= "#keyparts_greater_than_allowed_key_parts_for_materialized_tables";
+    cause= "#keyparts greater than allowed key parts for materialized tables";
   else
   {
     in_subs->types_allow_materialization= TRUE;
@@ -1084,8 +1080,6 @@ bool convert_join_subqueries_to_semijoins(JOIN *join)
   Query_arena *arena, backup;
   Item_in_subselect *in_subq;
   THD *thd= join->thd;
-  Opt_trace_context *const trace = &thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
   DBUG_ENTER("convert_join_subqueries_to_semijoins");
 
   if (join->select_lex->sj_subselects.is_empty())
@@ -1242,24 +1236,24 @@ bool convert_join_subqueries_to_semijoins(JOIN *join)
     /* Stop processing if we've reached a subquery that's attached to the ON clause */
     if (in_subq->do_not_convert_to_sj)
     {
-      OPT_TRACE_TRANSFORM(writer, oto0, oto1,
+      OPT_TRACE_TRANSFORM(thd, oto0, oto1,
                           in_subq->get_select_lex()->select_number,
                           "IN (SELECT)", "semijoin");
       oto1.add("converted_to_semi_join", false)
-          .add("cause", "subquery_attached_to_the_ON_clause");
+          .add("cause", "subquery attached to the ON clause");
       break;
     }
 
     if (in_subq->is_flattenable_semijoin) 
     {
-      OPT_TRACE_TRANSFORM(writer, oto0, oto1,
+      OPT_TRACE_TRANSFORM(thd, oto0, oto1,
                           in_subq->get_select_lex()->select_number,
                           "IN (SELECT)", "semijoin");
       if (join->table_count + 
           in_subq->unit->first_select()->join->table_count >= MAX_TABLES)
       {
         oto1.add("converted_to_semi_join", false);
-        oto1.add("cause", "table_in_parent_join_now_exceeds_MAX_TABLES");
+        oto1.add("cause", "table in parent join now exceeds MAX_TABLES");
         break;
       }
       if (convert_subq_to_sj(join, in_subq))
@@ -2383,14 +2377,13 @@ int pull_out_semijoin_tables(JOIN *join)
 bool optimize_semijoin_nests(JOIN *join, table_map all_table_map)
 {
   DBUG_ENTER("optimize_semijoin_nests");
-  Opt_trace_context* const trace= &join->thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
+  THD *thd= join->thd;
   List_iterator<TABLE_LIST> sj_list_it(join->select_lex->sj_nests);
   TABLE_LIST *sj_nest;
-  Json_writer_object wrapper(writer);
-  Json_writer_object trace_semijoin_nest(writer,
+  Json_writer_object wrapper(thd);
+  Json_writer_object trace_semijoin_nest(thd,
                               "execution_plan_for_potential_materialization");
-  Json_writer_array trace_steps_array(writer, "steps");
+  Json_writer_array trace_steps_array(thd, "steps");
   while ((sj_nest= sj_list_it++))
   {
     /* semi-join nests with only constant tables are not valid */

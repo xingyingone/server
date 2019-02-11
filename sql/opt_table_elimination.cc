@@ -612,9 +612,7 @@ void eliminate_tables(JOIN *join)
   if (!optimizer_flag(thd, OPTIMIZER_SWITCH_TABLE_ELIMINATION))
     DBUG_VOID_RETURN; /* purecov: inspected */
 
-  Opt_trace_context* trace= &thd->opt_trace;
-  Json_writer* writer= trace->get_current_json();
-  Json_writer_object trace_wrapper(writer);
+  Json_writer_object trace_wrapper(thd);
 
   /* Find the tables that are referred to from WHERE/HAVING */
   used_tables= (join->conds?  join->conds->used_tables() : 0) | 
@@ -673,7 +671,7 @@ void eliminate_tables(JOIN *join)
   }
 
   table_map all_tables= join->all_tables_map();
-  Json_writer_array eliminated_tables(writer,"eliminated_tables");
+  Json_writer_array eliminated_tables(thd,"eliminated_tables");
   if (all_tables & ~used_tables)
   {
     /* There are some tables that we probably could eliminate. Try it. */

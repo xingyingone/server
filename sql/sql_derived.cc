@@ -366,8 +366,6 @@ bool mysql_derived_merge(THD *thd, LEX *lex, TABLE_LIST *derived)
   uint tablenr;
   SELECT_LEX *parent_lex= derived->select_lex;
   Query_arena *arena, backup;
-  Opt_trace_context *const trace = &thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
   DBUG_ENTER("mysql_derived_merge");
   DBUG_PRINT("enter", ("Alias: '%s'  Unit: %p",
                        (derived->alias.str ? derived->alias.str : "<NULL>"),
@@ -489,14 +487,14 @@ exit_merge:
 
 unconditional_materialization:
 
-  if (unlikely(trace->is_started()))
+  if (unlikely(thd->trace_started()))
   {
     /*
      Add to the optimizer trace the change in choice for merged
      derived tables/views to materialised ones.
     */
-    Json_writer_object trace_wrapper(writer);
-    Json_writer_object trace_derived(writer, derived->is_derived() ?
+    Json_writer_object trace_wrapper(thd);
+    Json_writer_object trace_derived(thd, derived->is_derived() ?
                                        "derived" : "view");
     trace_derived.add("table", derived->alias.str ? derived->alias.str : "<NULL>")
                  .add_select_number(derived->get_unit()->
@@ -674,9 +672,6 @@ bool mysql_derived_prepare(THD *thd, LEX *lex, TABLE_LIST *derived)
   DBUG_ENTER("mysql_derived_prepare");
   DBUG_PRINT("enter", ("unit: %p  table_list: %p  alias: '%s'",
                        unit, derived, derived->alias.str));
-  Opt_trace_context *const trace = &thd->opt_trace;
-  Json_writer *writer= trace->get_current_json();
-
   if (!unit)
     DBUG_RETURN(FALSE);
 
@@ -769,14 +764,14 @@ bool mysql_derived_prepare(THD *thd, LEX *lex, TABLE_LIST *derived)
     }
   }
 
-  if (unlikely(trace->is_started()))
+  if (unlikely(thd->trace_started()))
   {
     /*
       Add to optimizer trace whether a derived table/view
       is merged into the parent select or not.
     */
-    Json_writer_object trace_wrapper(writer);
-    Json_writer_object trace_derived(writer, derived->is_derived() ?
+    Json_writer_object trace_wrapper(thd);
+    Json_writer_object trace_derived(thd, derived->is_derived() ?
                                        "derived" : "view");
     trace_derived.add("table", derived->alias.str ? derived->alias.str : "<NULL>")
             .add_select_number(derived->get_unit()->first_select()->select_number);

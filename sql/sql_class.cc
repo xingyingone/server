@@ -2188,6 +2188,11 @@ void THD::reset_globals()
   net.thd= 0;
 }
 
+bool THD::trace_started()
+{
+  return opt_trace.is_started();
+}
+
 /*
   Cleanup after query.
 

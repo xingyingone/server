@@ -219,15 +219,15 @@ void Json_writer::add_str(const String &str)
   add_str(str.ptr(), str.length());
 }
 
-Json_writer_object::Json_writer_object(Json_writer *writer) : 
-  Json_writer_struct(writer)
+Json_writer_object::Json_writer_object(THD *thd) : 
+  Json_writer_struct(thd)
 {
   if (my_writer)
     my_writer->start_object();
 }
 
-Json_writer_object::Json_writer_object(Json_writer *writer, const char *str)
- : Json_writer_struct(writer)
+Json_writer_object::Json_writer_object(THD* thd, const char *str)
+ : Json_writer_struct(thd)
 {
   if (my_writer)
     my_writer->add_member(str).start_object();
@@ -240,15 +240,15 @@ Json_writer_object::~Json_writer_object()
   closed= TRUE;
 }
 
-Json_writer_array::Json_writer_array(Json_writer *writer) :
-  Json_writer_struct(writer)
+Json_writer_array::Json_writer_array(THD *thd) :
+  Json_writer_struct(thd)
 {
   if (my_writer)
     my_writer->start_array();
 }
 
-Json_writer_array::Json_writer_array(Json_writer *writer, const char *str)
-                                       :Json_writer_struct(writer)
+Json_writer_array::Json_writer_array(THD *thd, const char *str)
+                                       :Json_writer_struct(thd)
 {
   if (my_writer)
     my_writer->add_member(str).start_array();
