@@ -2341,7 +2341,7 @@ int show_create_table(THD *thd, TABLE_LIST *table_list, String *packet,
       }
     }
     packet->append(')');
-    store_key_options(thd, packet, table, key_info);
+    store_key_options(thd, packet, table, &table->key_info[i]);
     if (key_info->parser)
     {
       LEX_CSTRING *parser_name= plugin_name(key_info->parser);

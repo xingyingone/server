@@ -3323,56 +3323,6 @@ mysql_add_invisible_index(THD *thd, List<Key> *key_list,
   return key;
 }
 
-#define LONG_HASH_FIELD_NAME_LENGTH 30
-static inline void make_long_hash_field_name(LEX_CSTRING *buf, uint num)
-{
-  buf->length= my_snprintf((char *)buf->str,
-          LONG_HASH_FIELD_NAME_LENGTH, "DB_ROW_HASH_%u", num);
-}
-/**
-  Add fully invisible hash field to table in case of long
-  unique column
-  @param  thd           Thread Context.
-  @param  create_list   List of table fields.
-  @param  cs            Field Charset
-  @param  key_info      current long unique key info
-*/
-
-static Create_field * add_hash_field(THD * thd, List<Create_field> *create_list,
-                           CHARSET_INFO *cs, KEY *key_info)
-{
-  List_iterator<Create_field> it(*create_list);
-  Create_field *dup_field, *cf= new (thd->mem_root) Create_field();
-  cf->flags|= UNSIGNED_FLAG | LONG_UNIQUE_HASH_FIELD;
-  cf->charset= cs;
-  cf->decimals= 0;
-  cf->length= cf->char_length= cf->pack_length= HA_HASH_FIELD_LENGTH;
-  cf->invisible= INVISIBLE_FULL;
-  cf->pack_flag|= FIELDFLAG_MAYBE_NULL;
-  uint num= 1;
-  LEX_CSTRING field_name;
-  field_name.str= (char *)thd->alloc(LONG_HASH_FIELD_NAME_LENGTH);
-  make_long_hash_field_name(&field_name, num);
-  /*
-    Check for collisions
-   */
-  while ((dup_field= it++))
-  {
-    if (!my_strcasecmp(system_charset_info, field_name.str, dup_field->field_name.str))
-    {
-      num++;
-      make_long_hash_field_name(&field_name, num);
-      it.rewind();
-    }
-  }
-  it.rewind();
-  cf->field_name= field_name;
-  cf->set_handler(&type_handler_longlong);
-  key_info->algorithm= HA_KEY_ALG_LONG_HASH;
-  create_list->push_back(cf,thd->mem_root);
-  return cf;
-}
-
 
 /*
   Preparation for table creation
@@ -4185,21 +4135,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     }
 
     if (is_hash_field_needed)
-    {/*  
-        Create_field *hash_fld= add_hash_field(thd, &alter_info->create_list,
-                       create_info->default_table_charset,
-                       key_info);
-      hash_fld->offset= record_offset;
-      record_offset+= hash_fld->pack_length;
-      if (key_info->flags & HA_NULL_PART_KEY)
-         null_fields++;
-      else
-      {
-        hash_fld->flags|= NOT_NULL_FLAG;
-        hash_fld->pack_flag&= ~FIELDFLAG_MAYBE_NULL;
-      }*/
       key_info->algorithm= HA_KEY_ALG_LONG_HASH;
-    }
+
     if (validate_comment_length(thd, &key->key_create_info.comment,
                                 INDEX_COMMENT_MAXLEN,
                                 ER_TOO_LONG_INDEX_COMMENT,
