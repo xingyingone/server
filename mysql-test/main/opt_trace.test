@@ -319,3 +319,17 @@ select * from information_schema.optimizer_trace;
 drop table ten,t0;
 set optimizer_trace='enabled=off';
 
+--echo #
+--echo # MDEV-18528: Optimizer trace support for multi-table UPDATE and DELETE
+--echo #
+
+create table ten(a int);
+insert into ten values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t0 (a int, b int);
+insert into t0 select a,a from ten;
+alter table t0 add key(a);
+create table t1 like t0;
+insert into t1 select * from t0;
+explain delete t0,t1 from t0, t1 where t0.a=t1.a and t1.a<3;
+select * from information_schema.optimizer_trace;
+drop table ten,t0,t1;
