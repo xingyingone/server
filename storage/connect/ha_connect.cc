@@ -1657,10 +1657,7 @@ bool ha_connect::GetIndexOption(KEY *kp, PCSZ opname)
 /****************************************************************************/
 bool ha_connect::IsUnique(uint n)
 {
-  TABLE_SHARE *s= (table) ? table->s : NULL;
-  KEY          kp= s->key_info[n];
-
-  return (kp.flags & 1) != 0;
+  return (table->key_info[n].flags & HA_NOSAME) != 0;
 } // end of IsUnique
 
 /****************************************************************************/
