@@ -8803,7 +8803,10 @@ int fields_in_hash_keyinfo(KEY *keyinfo)
                      keyinfo->key_part->field->vcol_info->expr;
   return temp->argument_count();
 }
-
+/*
+  setup_keyinfo_hash changes the key_info->key_part
+  to be same as defined by user
+ */
 void setup_keyinfo_hash(KEY *key_info)
 {
   DBUG_ASSERT(key_info->algorithm == HA_KEY_ALG_LONG_HASH);
@@ -8813,6 +8816,10 @@ void setup_keyinfo_hash(KEY *key_info)
   key_info->user_defined_key_parts= key_info->usable_key_parts=
                key_info->ext_key_parts= no_of_keyparts;
 }
+/*
+  re_setup_keyinfo_hash reverts th setup_keyinfo_hash and this type of
+  arrangement is expected by storage engine
+ */
 
 void re_setup_keyinfo_hash(KEY *key_info)
 {
