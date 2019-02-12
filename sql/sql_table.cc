@@ -4135,8 +4135,18 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     }
 
     if (is_hash_field_needed)
+    {
+      if (key_info->algorithm != HA_KEY_ALG_UNDEF &&
+              key_info->algorithm != HA_KEY_ALG_HASH )
+      {
+	    my_error(ER_TOO_LONG_KEY, MYF(0), file->max_key_length());
+	    DBUG_RETURN(TRUE);
+      }
       key_info->algorithm= HA_KEY_ALG_LONG_HASH;
-
+    }
+    // If user forces hash index for storage engine other then memory
+    else if (key_info->algorithm == HA_KEY_ALG_HASH)
+      key_info->algorithm= HA_KEY_ALG_LONG_HASH;
     if (validate_comment_length(thd, &key->key_create_info.comment,
                                 INDEX_COMMENT_MAXLEN,
                                 ER_TOO_LONG_INDEX_COMMENT,

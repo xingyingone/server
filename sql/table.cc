@@ -1766,7 +1766,6 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
                          share, len, &first_keyinfo, keynames))
       goto err;
   }
-  share->null_fields= 0;
   share->null_fields= uint2korr(forminfo+282);
   temp_null_bytes= (share->null_fields + 7 )/8;
   keyinfo= share->key_info;
