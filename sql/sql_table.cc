@@ -4145,7 +4145,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       key_info->algorithm= HA_KEY_ALG_LONG_HASH;
     }
     // If user forces hash index for storage engine other then memory
-    else if (key_info->algorithm == HA_KEY_ALG_HASH)
+    else if (key_info->algorithm == HA_KEY_ALG_HASH &&
+              create_info->db_type->db_type != DB_TYPE_HEAP)
       key_info->algorithm= HA_KEY_ALG_LONG_HASH;
     if (validate_comment_length(thd, &key->key_create_info.comment,
                                 INDEX_COMMENT_MAXLEN,

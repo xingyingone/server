@@ -582,3 +582,83 @@ table->field[3]->null_bit_pos = 16
 
 SET debug_dbug="";
 drop table t1;
+##Using hash but with memory engine so no long unique column
+SET debug_dbug="d,print_long_unique_internal_state";
+create table t1(a int ,b int , c int,  unique(a, b, c) using hash) engine=memory;
+Warnings:
+Note	1	Printing Table state, It will print table fields, fields->offset,field->null_bit, field->null_pos and key_info ... 
+
+Printing  Table  keyinfo
+
+Note	1	
+table->s->reclength 13
+table->s->fields 3
+
+Note	1	
+table->key_info[0] user_defined_key_parts = 3
+table->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 0
+table->key_info[0] flags & HA_NOSAME = 1
+
+Note	1	
+table->s->key_info[0] user_defined_key_parts = 3
+table->s->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 0
+table->s->key_info[0] flags & HA_NOSAME = 1
+
+Note	1	
+Printing table->key_info->key_part[0] info
+key_part->offset = 1
+key_part->field_name = a
+key_part->length = 4
+key_part->null_bit = 2
+key_part->null_offset = 0
+
+Note	1	
+Printing share->key_info->key_part[0] info
+key_part->offset = 1
+key_part->field_name = a
+key_part->length = 4
+key_part->null_bit = 2
+key_part->null_offset = 0
+
+Note	1	
+Printing share->key_info->key_part[1] info
+key_part->offset = 5
+key_part->field_name = b
+key_part->length = 4
+key_part->null_bit = 4
+key_part->null_offset = 0
+
+Note	1	
+Printing share->key_info->key_part[2] info
+key_part->offset = 9
+key_part->field_name = c
+key_part->length = 4
+key_part->null_bit = 8
+key_part->null_offset = 0
+
+Note	1	
+Printing table->fields
+
+Note	1	
+table->field[0]->field_name a
+table->field[0]->offset = 1
+table->field[0]->field_length = 4
+table->field[0]->null_pos wrt to record 0 = 0
+table->field[0]->null_bit_pos = 2
+
+Note	1	
+table->field[1]->field_name b
+table->field[1]->offset = 5
+table->field[1]->field_length = 4
+table->field[1]->null_pos wrt to record 0 = 0
+table->field[1]->null_bit_pos = 4
+
+Note	1	
+table->field[2]->field_name c
+table->field[2]->offset = 9
+table->field[2]->field_length = 4
+table->field[2]->null_pos wrt to record 0 = 0
+table->field[2]->null_bit_pos = 8
+
+SET debug_dbug="";
+drop table t1;
