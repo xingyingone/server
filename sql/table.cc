@@ -3307,6 +3307,82 @@ static bool check_vcol_forward_refs(Field *field, Virtual_column_info *vcol)
   return res;
 }
 
+static void print_long_unique_table(TABLE *table)
+{
+  char buff[256];
+  my_snprintf(buff, sizeof(buff), "Printing Table state, It will print table fields,"
+          " fields->offset,field->null_bit, field->null_pos and key_info ... \n"
+          "\nPrinting  Table  keyinfo\n");
+  (*error_handler_hook)(1, buff, ME_NOTE);
+  my_snprintf(buff, sizeof(buff), "\ntable->s->reclength %d\n"
+          "table->s->fields %d\n",
+          table->s->reclength, table->s->fields);
+  (*error_handler_hook)(1, buff, ME_NOTE);
+  KEY *key_info_table, *key_info_share;
+  KEY_PART_INFO *key_part;
+  for (uint i= 0; i < table->s->keys; i++)
+  {
+    key_info_table= table->key_info + i;
+    key_info_share= table->s->key_info + i;
+    my_snprintf(buff, sizeof(buff), "\ntable->key_info[%d] user_defined_key_parts = %d\n"
+                                    "table->key_info[%d] algorithm == HA_KEY_ALG_LONG_HASH = %d\n"
+                                    "table->key_info[%d] flags & HA_NOSAME = %d\n",
+                                   i, key_info_table->user_defined_key_parts,
+                                   i, key_info_table->algorithm == HA_KEY_ALG_LONG_HASH,
+                                   i, key_info_table->flags & HA_NOSAME);
+    (*error_handler_hook)(1, buff, ME_NOTE);
+    my_snprintf(buff, sizeof(buff), "\ntable->s->key_info[%d] user_defined_key_parts = %d\n"
+                                    "table->s->key_info[%d] algorithm == HA_KEY_ALG_LONG_HASH = %d\n"
+                                    "table->s->key_info[%d] flags & HA_NOSAME = %d\n",
+                                   i, key_info_share->user_defined_key_parts,
+                                   i, key_info_share->algorithm == HA_KEY_ALG_LONG_HASH,
+                                   i, key_info_share->flags & HA_NOSAME);
+    (*error_handler_hook)(1, buff, ME_NOTE);
+    key_part = key_info_table->key_part;
+    my_snprintf(buff, sizeof(buff), "\nPrinting table->key_info->key_part[0] info\n"
+            "key_part->offset = %d\n"
+            "key_part->field_name = %s\n"
+            "key_part->length = %d\n"
+            "key_part->null_bit = %d\n"
+            "key_part->null_offset = %d\n",
+            key_part->offset, key_part->field->field_name.str, key_part->length,
+            key_part->null_bit, key_part->null_offset);
+    (*error_handler_hook)(1, buff, ME_NOTE);
+
+    for (uint j= 0; j < key_info_share->user_defined_key_parts; j++)
+    {
+      key_part= key_info_share->key_part + j;
+      my_snprintf(buff, sizeof(buff), "\nPrinting share->key_info->key_part[%d] info\n"
+            "key_part->offset = %d\n"
+            "key_part->field_name = %s\n"
+            "key_part->length = %d\n"
+            "key_part->null_bit = %d\n"
+            "key_part->null_offset = %d\n",
+            j,key_part->offset, key_part->field->field_name.str, key_part->length,
+            key_part->null_bit, key_part->null_offset);
+      (*error_handler_hook)(1, buff, ME_NOTE);
+    }
+  }
+  my_snprintf(buff, sizeof(buff), "\nPrinting table->fields\n");
+  (*error_handler_hook)(1, buff, ME_NOTE);
+  Field *field;
+  for(uint i= 0; i < table->s->fields; i++)
+  {
+    field= table->field[i];
+    my_snprintf(buff, sizeof(buff), "\ntable->field[%d]->field_name %s\n"
+            "table->field[%d]->offset = %d\n"
+            "table->field[%d]->field_length = %d\n"
+            "table->field[%d]->null_pos wrt to record 0 = %d\n"
+            "table->field[%d]->null_bit_pos = %d\n",
+            i, field->field_name.str,
+            i, field->ptr- table->record[0],
+            i, field->pack_length(),
+            i, field->null_ptr - table->record[0],
+            i, field->null_bit);
+    (*error_handler_hook)(1, buff, ME_NOTE);
+  }
+}
+
 /*
   Open a table based on a TABLE_SHARE
 
@@ -3476,7 +3552,7 @@ enum open_frm_error open_table_from_share(THD *thd, TABLE_SHARE *share,
   /* Fix key->name and key_part->field */
   if (share->key_parts)
   {
-    KEY	*key_info, *key_info_end, *share_keyinfo;
+    KEY	*key_info, *key_info_end;
     KEY_PART_INFO *key_part;
     uint n_length;
     n_length= share->keys*sizeof(KEY) + share->ext_key_parts*sizeof(KEY_PART_INFO);
@@ -3754,6 +3830,8 @@ partititon_err:
     thd->status_var.opened_tables++;
 
   thd->lex->context_analysis_only= save_context_analysis_only;
+  DBUG_EXECUTE_IF("print_long_unique_internal_state",
+   print_long_unique_table(outparam););
   DBUG_RETURN (OPEN_FRM_OK);
 
  err:
