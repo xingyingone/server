@@ -6586,7 +6586,7 @@ static int get_schema_stat_record(THD *thd, TABLE_LIST *tables,
             table->field[8]->set_notnull();
           }
           KEY *key=show_table->key_info+i;
-          if (key->rec_per_key[j])
+          if (key->rec_per_key[j] && key->algorithm != HA_KEY_ALG_LONG_HASH)
           {
             ha_rows records= (ha_rows) ((double) show_table->stat_records() /
                                         key->actual_rec_per_key(j));
