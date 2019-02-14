@@ -1789,6 +1789,15 @@ ha_innobase::check_if_supported_inplace_alter(
 
 	update_thd();
 
+	/* Compressed page is not supported in full crc32 algorithm */
+	if (m_prebuilt->table->space != NULL
+	    && FSP_FLAGS_FCHKSUM_HAS_MARKER(m_prebuilt->table->space->flags)
+	    && altered_table->s->option_struct != NULL
+	    && altered_table->s->option_struct->page_compressed) {
+		ut_ad(!table->s->option_struct->page_compressed);
+		DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
+	}
+
 	if (ha_alter_info->handler_flags
 	    & ~(INNOBASE_INPLACE_IGNORE
 		| INNOBASE_ALTER_INSTANT

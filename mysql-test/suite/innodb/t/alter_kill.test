@@ -46,12 +46,21 @@ disconnect con1;
 -- echo # Corrupt FIL_PAGE_OFFSET in bug16720368.ibd,
 -- echo # and update the checksum to the "don't care" value.
 perl;
-my $file = "$ENV{MYSQLD_DATADIR}/test/bug16720368.ibd";
-open(FILE, "+<$file") || die "Unable to open $file";
-print FILE pack("H*","deadbeefc001cafe") || die "Unable to write $file";
-seek(FILE, $ENV{PAGE_SIZE}-8, 0) || die "Unable to seek $file";
-print FILE pack("H*","deadbeef") || die "Unable to write $file";
-close(FILE) || die "Unable to close $file";
+use strict;
+use warnings;
+use Fcntl qw(:DEFAULT :seek);
+do "$ENV{MTR_SUITE_DIR}/../innodb/include/crc32.pl";
+my $page_size = $ENV{PAGE_SIZE};
+sysopen IBD_FILE, "$ENV{MYSQLD_DATADIR}/test/bug16720368.ibd", O_RDWR || die "Cannot open bug16720368.ibd\n";
+my $page;
+sysread(IBD_FILE, $page, $page_size) || die "Cannot read bug16720368.ibd\n";
+substr($page, 4, 4) = pack("N", 4);
+my $polynomial = 0x82f63b78; # CRC-32C
+my $ck = mycrc32(substr($page, 0, ($page_size-4)), 0, $polynomial);
+substr($page, ($page_size - 4), 4) = pack("N", $ck);
+sysseek(IBD_FILE, 0, SEEK_SET) || die "Cannot seek bug16720368.ibd\n";
+die unless syswrite(IBD_FILE, $page, $page_size) == $page_size;
+close IBD_FILE;
 EOF
 
 -- echo # Restart mysqld
@@ -97,11 +106,21 @@ SELECT COUNT(*) FROM bug16720368;
 
 # Uncorrupt the FIL_PAGE_OFFSET.
 perl;
-my $file = "$ENV{MYSQLD_DATADIR}/test/bug16720368.ibd";
-open(FILE, "+<$file") || die "Unable to open $file";
-# Uncorrupt FIL_PAGE_OFFSET.
-print FILE pack("H*","deadbeef00000000") || die "Unable to write $file";
-close(FILE) || die "Unable to close $file";
+use strict;
+use warnings;
+use Fcntl qw(:DEFAULT :seek);
+do "$ENV{MTR_SUITE_DIR}/../innodb/include/crc32.pl";
+my $page_size = $ENV{PAGE_SIZE};
+sysopen IBD_FILE, "$ENV{MYSQLD_DATADIR}/test/bug16720368.ibd", O_RDWR || die "Cannot open bug16720368.ibd\n";
+my $page;
+sysread(IBD_FILE, $page, $page_size) || die "Cannot read bug16720368.ibd\n";
+substr($page, 4, 4) = pack("N", 0);
+my $polynomial = 0x82f63b78; # CRC-32C
+my $ck = mycrc32(substr($page, 0, ($page_size-4)), 0, $polynomial);
+substr($page, ($page_size - 4), 4) = pack("N", $ck);
+sysseek(IBD_FILE, 0, SEEK_SET) || die "Cannot seek bug16720368.ibd\n";
+die unless syswrite(IBD_FILE, $page, $page_size) == $page_size;
+close IBD_FILE;
 EOF
 
 -- echo # Restart the server after uncorrupting the file.

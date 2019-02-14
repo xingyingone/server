@@ -3278,7 +3278,8 @@ static dberr_t xb_assign_undo_space_start()
 	bool		ret;
 	dberr_t		error = DB_SUCCESS;
 	ulint		space, page_no __attribute__((unused));
-	int n_retries = 5;
+	int		n_retries = 5;
+	ulint		fsp_flags;
 
 	if (srv_undo_tablespaces == 0) {
 		return error;
@@ -3304,8 +3305,11 @@ retry:
 		goto func_exit;
 	}
 
+	fsp_flags = mach_read_from_4(
+		page + FSP_HEADER_OFFSET + FSP_SPACE_FLAGS);
+
 	/* TRX_SYS page can't be compressed or encrypted. */
-	if (buf_page_is_corrupted(false, page, 0)) {
+	if (buf_page_is_corrupted(false, page, fsp_flags)) {
 		if (n_retries--) {
 			os_thread_sleep(1000);
 			goto retry;
@@ -4586,7 +4590,9 @@ xb_space_create_file(
 	const ulint zip_size = fil_space_t::zip_size(flags);
 
 	if (!zip_size) {
-		buf_flush_init_for_writing(NULL, page, NULL, 0);
+		buf_flush_init_for_writing(
+			NULL, page, NULL, 0,
+			fil_space_t::use_full_checksum(flags));
 
 		ret = os_file_write(IORequestWrite, path, *file, page, 0,
 				    srv_page_size);
@@ -4602,7 +4608,8 @@ xb_space_create_file(
 			page_zip.m_end = page_zip.m_nonempty =
 			page_zip.n_blobs = 0;
 
-		buf_flush_init_for_writing(NULL, page, &page_zip, 0);
+		buf_flush_init_for_writing(NULL, page, &page_zip, 0,
+					   fil_space_t::use_full_checksum(flags));
 
 		ret = os_file_write(IORequestWrite, path, *file,
 				    page_zip.data, 0, zip_size);

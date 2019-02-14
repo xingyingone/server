@@ -80,8 +80,8 @@ ALTER TABLE t2 DISCARD TABLESPACE;
 --error ER_TABLE_SCHEMA_MISMATCH
 ALTER TABLE t2 IMPORT TABLESPACE;
 --remove_file $MYSQLD_DATADIR/test/t2.cfg
---replace_regex /(FSP_SPACE_FLAGS=0x)[0-9a-f]+(,.*0x)[0-9a-f]+(.*)/\1*\2*\3/
---error ER_TABLE_SCHEMA_MISMATCH
+#--replace_regex /(FSP_SPACE_FLAGS=0x)[0-9a-f]+(,.*0x)[0-9a-f]+(.*)/\1*\2*\3/
+#--error ER_TABLE_SCHEMA_MISMATCH
 ALTER TABLE t2 IMPORT TABLESPACE;
 DROP TABLE t2;
 

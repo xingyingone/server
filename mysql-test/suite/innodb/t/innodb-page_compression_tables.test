@@ -5,6 +5,7 @@ let $innodb_compression_algorithm_orig=`SELECT @@innodb_compression_algorithm`;
 
 # zlib
 set global innodb_compression_algorithm = 1;
+set global innodb_checksum_algorithm=crc32;
 
 create table innodb_normal(c1 bigint not null, b char(200)) engine=innodb;
 create table innodb_compact(c1 bigint not null, b char(200)) engine=innodb row_format=compact page_compressed=1;
@@ -106,4 +107,5 @@ SET SESSION innodb_compression_default = 0;
 # reset system
 --disable_query_log
 EVAL SET GLOBAL innodb_compression_algorithm = $innodb_compression_algorithm_orig;
+set global innodb_checksum_algorithm=default;
 --enable_query_log

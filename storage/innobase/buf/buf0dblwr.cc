@@ -477,6 +477,7 @@ buf_dblwr_init_or_load_pages(
 	page = buf;
 
 	for (ulint i = 0; i < TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * 2; i++) {
+
 		if (reset_space_ids) {
 			ulint source_page_no;
 
@@ -609,6 +610,7 @@ buf_dblwr_process()
 			read_buf, physical_size);
 		const bool expect_encrypted = space->crypt_data
 			&& space->crypt_data->type != CRYPT_SCHEME_UNENCRYPTED;
+		bool is_corrupted = false;
 
 		if (is_all_zero) {
 			/* We will check if the copy in the
@@ -623,13 +625,16 @@ buf_dblwr_process()
 				goto bad;
 			}
 
-			if (expect_encrypted && mach_read_from_4(
-				    read_buf
-				    + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION)
-			    ? fil_space_verify_crypt_checksum(read_buf,
-							      zip_size)
-			    : !buf_page_is_corrupted(true, read_buf,
-						     zip_size, space)) {
+			if (expect_encrypted
+			    && buf_page_get_key_version(read_buf, space->flags)) {
+				is_corrupted = !buf_page_verify_crypt_checksum(
+							read_buf, space->flags);
+			} else {
+				is_corrupted = buf_page_is_corrupted(
+					true, read_buf, space->flags);
+			}
+
+			if (!is_corrupted) {
 				/* The page is good; there is no need
 				to consult the doublewrite buffer. */
 				continue;
@@ -648,10 +653,16 @@ bad:
 			goto bad_doublewrite;
 		}
 
-		if (expect_encrypted && mach_read_from_4(
-			    page + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION)
-		    ? !fil_space_verify_crypt_checksum(page, zip_size)
-		    : buf_page_is_corrupted(true, page, zip_size, space)) {
+		if (expect_encrypted
+		    && buf_page_get_key_version(read_buf, space->flags)) {
+			is_corrupted = !buf_page_verify_crypt_checksum(
+						page, space->flags);
+		} else {
+			is_corrupted = buf_page_is_corrupted(
+					true, page, space->flags);
+		}
+
+		if (is_corrupted) {
 			if (!is_all_zero) {
 bad_doublewrite:
 				ib::warn() << "A doublewrite copy of page "
@@ -806,11 +817,22 @@ buf_dblwr_check_page_lsn(
 		return;
 	}
 
+	bool lsn_mismatch = false;
+
 	if (memcmp(page + (FIL_PAGE_LSN + 4),
 		   page + (srv_page_size
 			   - FIL_PAGE_END_LSN_OLD_CHKSUM + 4),
 		   4)) {
 
+		if (memcmp(page + (FIL_PAGE_LSN + 4),
+			   page + (srv_page_size
+				   - FIL_PAGE_FCHKSUM_END_LSN),
+			   4)) {
+			lsn_mismatch = true;
+		}
+	}
+
+	if (lsn_mismatch) {
 		const ulint	lsn1 = mach_read_from_4(
 			page + FIL_PAGE_LSN + 4);
 		const ulint	lsn2 = mach_read_from_4(

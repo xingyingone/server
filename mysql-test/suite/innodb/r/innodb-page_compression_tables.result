@@ -1,4 +1,5 @@
 set global innodb_compression_algorithm = 1;
+set global innodb_checksum_algorithm=crc32;
 create table innodb_normal(c1 bigint not null, b char(200)) engine=innodb;
 create table innodb_compact(c1 bigint not null, b char(200)) engine=innodb row_format=compact page_compressed=1;
 create table innodb_dynamic(c1 bigint not null, b char(200)) engine=innodb row_format=dynamic page_compressed=1;

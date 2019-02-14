@@ -79,10 +79,20 @@ Updated 14/02/2015
 @param[in]	level		compression level
 @param[in]	block_size	file system block size
 @param[in]	encrypted	whether the page will be subsequently encrypted
+@param[in]	flags		tablespace flags
 @return actual length of compressed page
 @retval	0	if the page was not compressed */
-ulint fil_page_compress(const byte* buf, byte* out_buf, ulint level,
-			ulint block_size, bool encrypted)
+ulint fil_page_compress(
+	const byte*	buf,
+	byte*		out_buf,
+	ulint		level,
+	ulint		block_size,
+	bool		encrypted
+#ifdef UNIV_DEBUG
+	,ulint		flags)
+#else
+	)
+#endif /* UNIV_DEBUG */
 {
 	int comp_level = int(level);
 	ulint header_len = FIL_PAGE_DATA + FIL_PAGE_COMPRESSED_SIZE;
@@ -250,7 +260,17 @@ success:
 		page_t page[UNIV_PAGE_SIZE_MAX];
 		memcpy(page, out_buf, srv_page_size);
 		ut_ad(fil_page_decompress(tmp_buf, page));
-		ut_ad(!buf_page_is_corrupted(false, page, 0, NULL));
+		ulint fsp_flags = 0;
+		if (fil_space_t::use_full_checksum(flags)) {
+			/* Need to construct flag for new crc32 checksum */
+			fsp_flags = 1U << FSP_FLAGS_FCHKSUM_POS_MARKER;
+			fsp_flags |= FSP_FLAGS_FCHKSUM_PAGE_SSIZE();
+
+			ut_ad(!buf_page_is_corrupted(false, page, fsp_flags));
+		} else {
+			fsp_flags = flags;
+			ut_ad(!buf_page_is_corrupted(false, page, fsp_flags));
+		}
 	}
 #endif /* UNIV_DEBUG */
 

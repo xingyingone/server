@@ -219,6 +219,21 @@ to ROW_FORMAT=REDUNDANT and ROW_FORMAT=COMPACT. */
 /** A mask of all the known/used bits in FSP_SPACE_FLAGS */
 #define FSP_FLAGS_MASK		(~(~0U << FSP_FLAGS_WIDTH))
 
+/** Number of flag bits used to indicate the tablespace page size */
+#define FSP_FLAGS_FCHKSUM_WIDTH_PAGE_SSIZE	4
+
+/** Marker to indicate whether tablespace is in full checksum format. */
+#define FSP_FLAGS_FCHKSUM_WIDTH_MARKER		1
+
+/** Stores the compressed algo for full checksum format. */
+#define FSP_FLAGS_FCHKSUM_WIDTH_COMPRESSED_ALGO	3
+
+/** Width of all currently known persistent tablespace flags
+in full checksum format */
+#define FSP_FLAGS_FCHKSUM_WIDTH	(FSP_FLAGS_FCHKSUM_WIDTH_PAGE_SSIZE     \
+				 + FSP_FLAGS_FCHKSUM_WIDTH_MARKER       \
+				 + FSP_FLAGS_FCHKSUM_WIDTH_COMPRESSED_ALGO)
+
 /* FSP_SPACE_FLAGS position and name in MySQL 5.6/MariaDB 10.0 or older
 and MariaDB 10.1.20 or older MariaDB 10.1 and in MariaDB 10.1.21
 or newer.
@@ -282,6 +297,19 @@ these are only used in MySQL 5.7 and used for compatibility. */
 #define FSP_FLAGS_POS_PAGE_COMPRESSION	(FSP_FLAGS_POS_RESERVED \
 					+ FSP_FLAGS_WIDTH_RESERVED)
 
+/** Zero relative shift position of the PAGE_SIZE field
+in full crc32 format */
+#define FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE	0
+
+/** Zero relative shift position of the MARKER field in full crc32 format. */
+#define FSP_FLAGS_FCHKSUM_POS_MARKER	(FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE \
+					 + FSP_FLAGS_FCHKSUM_WIDTH_PAGE_SSIZE)
+
+/** Zero relative shift position of the compressed algorithm stored
+in full crc32 format. */
+#define FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO	(FSP_FLAGS_FCHKSUM_POS_MARKER \
+						 + FSP_FLAGS_FCHKSUM_WIDTH_MARKER)
+
 /** Bit mask of the POST_ANTELOPE field */
 #define FSP_FLAGS_MASK_POST_ANTELOPE				\
 		((~(~0U << FSP_FLAGS_WIDTH_POST_ANTELOPE))	\
@@ -311,6 +339,21 @@ these are only used in MySQL 5.7 and used for compatibility. */
 #define FSP_FLAGS_MASK_MEM_COMPRESSION_LEVEL			\
 		(15U << FSP_FLAGS_MEM_COMPRESSION_LEVEL)
 
+/** Bit mask of the PAGE_SIZE field in full crc32 format */
+#define FSP_FLAGS_FCHKSUM_MASK_PAGE_SSIZE			\
+		((~(~0U << FSP_FLAGS_FCHKSUM_WIDTH_PAGE_SSIZE))	\
+		<< FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE)
+
+/** Bit mask of the MARKER field in full crc32 format */
+#define FSP_FLAGS_FCHKSUM_MASK_MARKER				\
+		((~(~0U << FSP_FLAGS_FCHKSUM_WIDTH_MARKER))	\
+		<< FSP_FLAGS_FCHKSUM_POS_MARKER)
+
+/** Bit mask of the COMPRESSED ALGO field in full crc32 format */
+#define FSP_FLAGS_FCHKSUM_MASK_COMPRESSED_ALGO			\
+		((~(~0U << FSP_FLAGS_FCHKSUM_WIDTH_COMPRESSED_ALGO))	\
+		<< FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO)
+
 /** Return the value of the POST_ANTELOPE field */
 #define FSP_FLAGS_GET_POST_ANTELOPE(flags)			\
 		((flags & FSP_FLAGS_MASK_POST_ANTELOPE)		\
@@ -335,6 +378,18 @@ these are only used in MySQL 5.7 and used for compatibility. */
 #define FSP_FLAGS_HAS_PAGE_COMPRESSION(flags)			\
 		((flags & FSP_FLAGS_MASK_PAGE_COMPRESSION)	\
 		>> FSP_FLAGS_POS_PAGE_COMPRESSION)
+/** @return the PAGE_SSIZE flags in full crc32 format */
+#define FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags)			\
+		((flags & FSP_FLAGS_FCHKSUM_MASK_PAGE_SSIZE)	\
+		>> FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE)
+/** @return the MARKER flag in full crc32 format */
+#define FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)			\
+		((flags & FSP_FLAGS_FCHKSUM_MASK_MARKER)	\
+		>> FSP_FLAGS_FCHKSUM_POS_MARKER)
+/** @return the COMPRESSED_ALGO flags in full crc32 format */
+#define FSP_FLAGS_FCHKSUM_GET_COMPRESSED_ALGO(flags)			\
+		((flags & FSP_FLAGS_FCHKSUM_MASK_COMPRESSED_ALGO)	\
+		>> FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO)
 
 /** Return the contents of the UNUSED bits */
 #define FSP_FLAGS_GET_UNUSED(flags)				\
@@ -351,6 +406,30 @@ these are only used in MySQL 5.7 and used for compatibility. */
 /* @} */
 
 /** Validate the tablespace flags, which are stored in the
+tablespace header at offset FSP_SPACE_FLAGS for full crc32 format.
+@param[in]	flags	the contents of FSP_SPACE_FLAGS
+@return	whether the flags are correct in full crc32 format */
+static bool fsp_flags_fchksum_is_valid(ulint flags)
+{
+	ut_ad(flags & FSP_FLAGS_FCHKSUM_MASK_MARKER);
+
+	const ulint page_ssize = FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags);
+
+	if (page_ssize < 3 || page_ssize & 8) {
+		return false;
+	}
+
+	const ulint page_compress_algo
+		= FSP_FLAGS_FCHKSUM_GET_COMPRESSED_ALGO(flags);
+
+	if (page_compress_algo > 6) {
+		return false;
+	}
+
+	return true;
+}
+
+/** Validate the tablespace flags, which are stored in the
 tablespace header at offset FSP_SPACE_FLAGS.
 @param[in]	flags	the contents of FSP_SPACE_FLAGS
 @param[in]	is_ibd	whether this is an .ibd file (not system tablespace)
@@ -362,6 +441,11 @@ fsp_flags_is_valid(ulint flags, bool is_ibd)
 {
 	DBUG_EXECUTE_IF("fsp_flags_is_valid_failure",
 			return(false););
+
+	if (flags & FSP_FLAGS_FCHKSUM_MASK_MARKER) {
+		return fsp_flags_fchksum_is_valid(flags);
+	}
+
 	if (flags == 0) {
 		return(true);
 	}

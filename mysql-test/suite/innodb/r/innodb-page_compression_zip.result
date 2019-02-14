@@ -1,3 +1,4 @@
+set global innodb_checksum_algorithm=crc32;
 set global innodb_compression_algorithm = 1;
 create table innodb_compressed(c1 int, b char(20)) engine=innodb row_format=compressed key_block_size=8;
 show warnings;
@@ -352,3 +353,4 @@ drop table innodb_page_compressed6;
 drop table innodb_page_compressed7;
 drop table innodb_page_compressed8;
 drop table innodb_page_compressed9;
+set global innodb_checksum_algorithm=default;

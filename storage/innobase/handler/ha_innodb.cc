@@ -365,6 +365,8 @@ const char* innodb_checksum_algorithm_names[] = {
 	"strict_innodb",
 	"none",
 	"strict_none",
+	"full_crc32",
+	"strict_full_crc32",
 	NullS
 };
 
@@ -11537,7 +11539,8 @@ create_table_info_t::check_table_options()
 	encryption */
 	for(ulint i = 0; i < m_form->s->keys; i++) {
 		const KEY* key = m_form->key_info + i;
-		if (key->flags & HA_SPATIAL && should_encrypt) {
+		if (key->flags & HA_SPATIAL && should_encrypt
+		    && options->page_compressed && srv_checksum_algorithm > 6) {
 			push_warning_printf(m_thd, Sql_condition::WARN_LEVEL_WARN,
 				HA_ERR_UNSUPPORTED,
 				"InnoDB: ENCRYPTED=ON not supported for table because "
@@ -18740,7 +18743,7 @@ static MYSQL_SYSVAR_ENUM(checksum_algorithm, srv_checksum_algorithm,
     " magic number when reading;"
   " Files updated when this option is set to crc32 or strict_crc32 will"
   " not be readable by MariaDB versions older than 10.0.4",
-  NULL, NULL, SRV_CHECKSUM_ALGORITHM_CRC32,
+  NULL, NULL, SRV_CHECKSUM_ALGORITHM_FULL_CRC32,
   &innodb_checksum_algorithm_typelib);
 
 static MYSQL_SYSVAR_BOOL(log_checksums, innodb_log_checksums,

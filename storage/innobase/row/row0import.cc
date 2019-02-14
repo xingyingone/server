@@ -823,6 +823,7 @@ public:
 	@param block block to convert, it is not from the buffer pool.
 	@retval DB_SUCCESS or error code. */
 	dberr_t operator()(buf_block_t* block) UNIV_NOTHROW;
+
 private:
 	/** Update the page, set the space id, max trx id and index id.
 	@param block block read from file
@@ -2025,12 +2026,25 @@ dberr_t PageConverter::operator()(buf_block_t* block) UNIV_NOTHROW
 	if (err != DB_SUCCESS) return err;
 
 	if (!block->page.zip.data) {
+
+		if (fil_space_t::use_full_checksum(get_space_flags())
+		    && block->page.encrypted && block->page.id.page_no() > 0) {
+			byte* page = block->frame;
+			mach_write_to_8(page + FIL_PAGE_LSN, m_current_lsn);
+			mach_write_to_4(
+				page + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN,
+				(ulint) m_current_lsn);
+			return err;
+		}
+
 		buf_flush_init_for_writing(
-			NULL, block->frame, NULL, m_current_lsn);
+			NULL, block->frame, NULL, m_current_lsn,
+			fil_space_t::use_full_checksum(get_space_flags()));
 	} else if (fil_page_type_is_index(page_type)) {
 		buf_flush_init_for_writing(
 			NULL, block->page.zip.data, &block->page.zip,
-			m_current_lsn);
+			m_current_lsn,
+			fil_space_t::use_full_checksum(get_space_flags()));
 	} else {
 		/* Calculate and update the checksum of non-index
 		pages for ROW_FORMAT=COMPRESSED tables. */
@@ -3406,11 +3420,11 @@ page_corrupted:
 			bool decrypted = false;
 			byte* dst = io_buffer + i * size;
 			bool frame_changed = false;
+			ulint key_version = buf_page_get_key_version(
+						src, callback.get_space_flags());
 
 			if (!encrypted) {
-			} else if (!mach_read_from_4(
-					   FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION
-					   + src)) {
+			} else if (!key_version) {
 not_encrypted:
 				if (!page_compressed
 				    && !block->page.zip.data) {
@@ -3421,14 +3435,17 @@ not_encrypted:
 					memcpy(dst, src, size);
 				}
 			} else {
-				if (!fil_space_verify_crypt_checksum(
-					    src, callback.get_zip_size())) {
+				if (!buf_page_verify_crypt_checksum(
+					src, callback.get_space_flags())) {
 					goto page_corrupted;
 				}
 
 				decrypted = fil_space_decrypt(
+					block->page.id.space(),
 					iter.crypt_data, dst,
-					callback.physical_size(), src, &err);
+					callback.physical_size(),
+					callback.get_space_flags(),
+					src, &err);
 
 				if (err != DB_SUCCESS) {
 					goto func_exit;
@@ -3441,6 +3458,13 @@ not_encrypted:
 				updated = true;
 			}
 
+			/* For full_crc32 format, skip checksum check
+			after decryption. */
+			bool skip_checksum_check =
+				(encrypted && block->page.id.page_no() > 0
+				 && fil_space_t::use_full_checksum(
+					callback.get_space_flags()));
+
 			/* If the original page is page_compressed, we need
 			to decompress it before adjusting further. */
 			if (page_compressed) {
@@ -3451,12 +3475,17 @@ not_encrypted:
 					goto page_corrupted;
 				}
 				updated = true;
-			} else if (buf_page_is_corrupted(
+			} else if (!skip_checksum_check
+				   && buf_page_is_corrupted(
 					   false,
 					   encrypted && !frame_changed
 					   ? dst : src,
-					   callback.get_zip_size(), NULL)) {
+					   callback.get_space_flags())) {
 				goto page_corrupted;
+			}
+
+			if (encrypted) {
+				block->page.encrypted = true;
 			}
 
 			if ((err = callback(block)) != DB_SUCCESS) {
@@ -3516,7 +3545,12 @@ not_encrypted:
 					    page_compress_buf,
 					    0,/* FIXME: compression level */
 					    512,/* FIXME: proper block size */
-					    encrypted)) {
+					    encrypted
+#ifdef UNIV_DEBUG
+					    ,callback.get_space_flags())) {
+#else
+					    )) {
+#endif
 					/* FIXME: remove memcpy() */
 					memcpy(src, page_compress_buf, len);
 					memset(src + len, 0,
@@ -3527,12 +3561,18 @@ not_encrypted:
 			/* Encrypt the page if encryption was used. */
 			if (encrypted && decrypted) {
 				byte *dest = writeptr + i * size;
+
+				bool use_full_cksum =
+					fil_space_t::use_full_checksum(
+						callback.get_space_flags());
+
 				byte* tmp = fil_encrypt_buf(
 					iter.crypt_data,
 					block->page.id.space(),
 					block->page.id.page_no(),
 					mach_read_from_8(src + FIL_PAGE_LSN),
-					src, block->zip_size(), dest);
+					src, block->zip_size(), dest,
+					use_full_cksum);
 
 				if (tmp == src) {
 					/* TODO: remove unnecessary memcpy's */

@@ -45,6 +45,12 @@ Created 12/18/1995 Heikki Tuuri
 	 0U : (srv_page_size_shift - UNIV_ZIP_SIZE_SHIFT_MIN + 1)	\
 	 << FSP_FLAGS_POS_PAGE_SSIZE)
 
+/** @return the PAGE_SSIZE flags for the current innodb_page_size in
+full checksum format */
+#define FSP_FLAGS_FCHKSUM_PAGE_SSIZE()					\
+	((srv_page_size_shift - UNIV_ZIP_SIZE_SHIFT_MIN + 1)		\
+	<< FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE)
+
 /* @defgroup Compatibility macros for MariaDB 10.1.0 through 10.1.20;
 see the table in fsp0types.h @{ */
 /** Zero relative shift position of the PAGE_COMPRESSION field */

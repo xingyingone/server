@@ -1,0 +1,109 @@
+10c10
+< NOCOPY
+---
+> COPY
+14c14,15
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+17c18,19
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+20c22,23
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+23c26,27
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+26c30,31
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+29c34,35
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+32c38,39
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+35c42,43
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+38c46,47
+< Got one of the listed errors
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+49a59,75
+> ALTER TABLE t1 ADD INDEX idx1(f4), page_compressed=1;
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+> ALTER TABLE t1 DROP INDEX idx, page_compression_level=5;
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+> ALTER TABLE t1 ADD UNIQUE INDEX u1(f2);
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+> ALTER TABLE t1 DROP INDEX f4, page_compression_level=9;
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+> SET foreign_key_checks = 0;
+> affected rows: 0
+> ALTER TABLE t1 ADD FOREIGN KEY(f5) REFERENCES t2(f1);
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+62,63c88,89
+< affected rows: 0
+< info: Records: 0  Duplicates: 0  Warnings: 0
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+66,67c92,93
+< affected rows: 0
+< info: Records: 0  Duplicates: 0  Warnings: 0
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+70,71c96,97
+< affected rows: 0
+< info: Records: 0  Duplicates: 0  Warnings: 0
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+74,75c100,101
+< affected rows: 0
+< info: Records: 0  Duplicates: 0  Warnings: 0
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+81,82c107,108
+< affected rows: 0
+< info: Records: 0  Duplicates: 0  Warnings: 0
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+90,91c116,117
+< affected rows: 0
+< info: Records: 0  Duplicates: 0  Warnings: 0
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0
+95,96c121,122
+< affected rows: 0
+< info: Records: 0  Duplicates: 0  Warnings: 0
+---
+> affected rows: 1
+> info: Records: 1  Duplicates: 0  Warnings: 0

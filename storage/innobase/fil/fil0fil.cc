@@ -552,6 +552,11 @@ bool fil_node_t::read_page0(bool first)
 			size_bytes &= ~os_offset_t(mask);
 		}
 
+		if (space->flags != flags
+		    && fil_space_t::is_flags_equal(flags, space->flags)) {
+			space->flags = flags;
+		}
+
 		this->size = ulint(size_bytes / psize);
 		space->size += this->size;
 	}
@@ -3018,7 +3023,12 @@ err_exit:
 
 	memset(page, '\0', srv_page_size);
 
-	flags |= FSP_FLAGS_PAGE_SSIZE();
+	if (fil_space_t::use_full_checksum(flags)) {
+		flags |= FSP_FLAGS_FCHKSUM_PAGE_SSIZE();
+	} else {
+		flags |= FSP_FLAGS_PAGE_SSIZE();
+	}
+
 	fsp_header_init_fields(page, space_id, flags);
 	mach_write_to_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, space_id);
 
@@ -3032,12 +3042,16 @@ err_exit:
 			page_zip.m_end = page_zip.m_nonempty =
 			page_zip.n_blobs = 0;
 
-		buf_flush_init_for_writing(NULL, page, &page_zip, 0);
+		buf_flush_init_for_writing(
+			NULL, page, &page_zip, 0,
+			fil_space_t::use_full_checksum(flags));
 
 		*err = os_file_write(
 			IORequestWrite, path, file, page_zip.data, 0, zip_size);
 	} else {
-		buf_flush_init_for_writing(NULL, page, NULL, 0);
+		buf_flush_init_for_writing(
+			NULL, page, NULL, 0,
+			fil_space_t::use_full_checksum(flags));
 
 		*err = os_file_write(
 			IORequestWrite, path, file, page, 0, srv_page_size);
@@ -3882,20 +3896,21 @@ void fsp_flags_try_adjust(fil_space_t* space, ulint flags)
 		    RW_X_LATCH, &mtr)) {
 		ulint f = fsp_header_get_flags(b->frame);
 		/* Suppress the message if only the DATA_DIR flag to differs. */
-		if ((f ^ flags) & ~(1U << FSP_FLAGS_POS_RESERVED)) {
+		bool is_equal = fil_space_t::is_flags_equal(f, flags);
+		if (!is_equal) {
 			ib::warn()
 				<< "adjusting FSP_SPACE_FLAGS of file '"
 				<< UT_LIST_GET_FIRST(space->chain)->name
 				<< "' from " << ib::hex(f)
 				<< " to " << ib::hex(flags);
-		}
-		if (f != flags) {
+
 			mtr.set_named_space(space);
 			mlog_write_ulint(FSP_HEADER_OFFSET
 					 + FSP_SPACE_FLAGS + b->frame,
 					 flags, MLOG_4BYTES, &mtr);
 		}
 	}
+
 	mtr.commit();
 }
 

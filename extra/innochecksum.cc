@@ -274,14 +274,25 @@ void print_leaf_stats(
 	}
 }
 
-/** Get the ROW_FORMAT=COMPRESSED size from the filespace header.
-@param[in]	buf	buffer used to read the page.
-@return ROW_FORMAT_COMPRESSED page size
-@retval	0	if not ROW_FORMAT=COMPRESSED */
-static ulint get_zip_size(const byte* buf)
+/** Init the page size for the tablespace.
+@param[in]	buf	buffer used to read the page */
+static void init_page_size(const byte* buf)
 {
 	const unsigned	flags = mach_read_from_4(buf + FIL_PAGE_DATA
 						 + FSP_SPACE_FLAGS);
+
+	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
+		switch (FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags)) {
+		case 3: { srv_page_size = 4096; break; }
+		case 4: { srv_page_size = 8192; break; }
+		case 5: { srv_page_size = 16384; break; }
+		case 6: { srv_page_size = 32768; break; }
+		case 7: { srv_page_size = 65536; break; }
+		}
+
+		physical_page_size = srv_page_size;
+		return;
+	}
 
 	const ulong	ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
 
@@ -297,7 +308,6 @@ static ulint get_zip_size(const byte* buf)
 	} else {
 		physical_page_size = srv_page_size;
 	}
-	return zip_size;
 }
 
 #ifdef _WIN32
@@ -429,19 +439,16 @@ ulint read_file(
 
 /** Check if page is corrupted or not.
 @param[in]	buf		page frame
-@param[in]	zip_size	ROW_FORMAT=COMPRESSED page size, or 0
 @param[in]	is_encrypted	true if page0 contained cryp_data
 				with crypt_scheme encrypted
-@param[in]	is_compressed	true if page0 fsp_flags contained
-				page compression flag
+@param[in]	flags		tablespace flags
 @retval true if page is corrupted otherwise false. */
 static
 bool
 is_page_corrupted(
 	byte*		buf,
-	ulint		zip_size,
 	bool		is_encrypted,
-	bool		is_compressed)
+	ulint		flags)
 {
 
 	/* enable if page is corrupted. */
@@ -450,9 +457,21 @@ is_page_corrupted(
 	ulint logseq;
 	ulint logseqfield;
 	ulint page_type = mach_read_from_2(buf+FIL_PAGE_TYPE);
-	uint key_version = mach_read_from_4(buf+FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION);
+	ulint key_version = buf_page_get_key_version(buf, flags);
 	ulint space_id = mach_read_from_4(
 		buf + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+	ulint zip_size = 0;
+	ulint is_compressed = false;
+	bool  use_full_checksum = FSP_FLAGS_FCHKSUM_HAS_MARKER(flags);
+
+	if (!use_full_checksum) {
+		zip_size = FSP_FLAGS_GET_ZIP_SSIZE(flags);
+		if (zip_size) {
+			zip_size = (UNIV_ZIP_SIZE_MIN >> 1) << zip_size;
+		}
+
+		is_compressed = FSP_FLAGS_HAS_PAGE_COMPRESSION(flags);
+	}
 
 	/* We can't trust only a page type, thus we take account
 	also fsp_flags or crypt_data on page 0 */
@@ -471,6 +490,12 @@ is_page_corrupted(
 		logseqfield = mach_read_from_4(
 				buf + srv_page_size -
 				FIL_PAGE_END_LSN_OLD_CHKSUM + 4);
+
+		if (use_full_checksum) {
+			logseqfield = mach_read_from_4(
+					buf + srv_page_size -
+					FIL_PAGE_FCHKSUM_END_LSN);
+		}
 
 		if (is_log_enabled) {
 			fprintf(log_file,
@@ -498,23 +523,25 @@ is_page_corrupted(
 	so if crypt checksum does not match we verify checksum using
 	normal method. */
 	if (is_encrypted && key_version != 0) {
-		is_corrupted = !fil_space_verify_crypt_checksum(buf, zip_size);
+
+		if (use_full_checksum) {
+			is_corrupted = buf_page_is_corrupted(true, buf, flags);
+		} else {
+			is_corrupted = !fil_space_verify_crypt_checksum(buf, zip_size);
+		}
+
 		if (is_corrupted && log_file) {
 			fprintf(log_file,
 				"Page " ULINTPF ":%llu may be corrupted;"
 				" key_version=%u\n",
-				space_id, cur_page_num,
-				mach_read_from_4(
-					FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION
-					+ buf));
+				space_id, cur_page_num, (uint)key_version);
 		}
 	} else {
 		is_corrupted = true;
 	}
 
 	if (is_corrupted) {
-		is_corrupted = buf_page_is_corrupted(
-			true, buf, zip_size, NULL);
+		is_corrupted = buf_page_is_corrupted(true, buf, flags);
 	}
 
 	return(is_corrupted);
@@ -566,17 +593,13 @@ is_page_empty(
 /********************************************************************//**
 Rewrite the checksum for the page.
 @param	[in/out] page			page buffer
-@param	[in] iscompressed		Is compressed/Uncompressed Page.
+@param	[in] flags			tablespace flags
 
 @retval true  : do rewrite
 @retval false : skip the rewrite as checksum stored match with
 		calculated or page is doublwrite buffer.
 */
-
-bool
-update_checksum(
-	byte*	page,
-	bool	iscompressed)
+static bool update_checksum(byte* page, ulint flags)
 {
 	ib_uint32_t	checksum = 0;
 	byte		stored1[4];	/* get FIL_PAGE_SPACE_OR_CHKSUM field checksum */
@@ -586,6 +609,13 @@ update_checksum(
 	/* If page is doublewrite buffer, skip the rewrite of checksum. */
 	if (skip_page) {
 		return (false);
+	}
+
+	bool iscompressed = false;
+	bool use_full_checksum = FSP_FLAGS_FCHKSUM_HAS_MARKER(flags);
+
+	if (!use_full_checksum) {
+		iscompressed = FSP_FLAGS_GET_ZIP_SSIZE(flags) != 0;
 	}
 
 	memcpy(stored1, page + FIL_PAGE_SPACE_OR_CHKSUM, 4);
@@ -618,9 +648,19 @@ update_checksum(
 	} else {
 		/* page is uncompressed. */
 
+		if (use_full_checksum) {
+			checksum = buf_calc_page_full_crc32(page);
+			mach_write_to_4(page + (physical_page_size
+						- FIL_PAGE_FCHKSUM_CRC32),
+					checksum);
+			return true;			
+		}
+
 		/* Store the new formula checksum */
 		switch ((srv_checksum_algorithm_t) write_check) {
 
+		case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
+		case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
 		case SRV_CHECKSUM_ALGORITHM_CRC32:
 		case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
 			checksum = buf_calc_page_crc32(page);
@@ -636,6 +676,7 @@ update_checksum(
 		case SRV_CHECKSUM_ALGORITHM_STRICT_NONE:
 			checksum = BUF_NO_CHECKSUM_MAGIC;
 			break;
+
 		/* no default so the compiler will emit a warning if new
 		enum is added and not handled here */
 		}
@@ -689,8 +730,7 @@ func_exit:
 @param[in,out]		file		file pointer where content
 					have to be written
 @param[in]		buf		file buffer read
-@param[in]		compressed	Enabled if tablespace is
-					compressed.
+@param[in]		flags		tablespace flags
 @param[in,out]		pos		current file position.
 
 @retval true	if successfully written
@@ -702,12 +742,12 @@ write_file(
 	const char*	filename,
 	FILE*		file,
 	byte*		buf,
-	bool		compressed,
+	ulint		flags,
 	fpos_t*		pos)
 {
 	bool	do_update;
 
-	do_update = update_checksum(buf, compressed);
+	do_update = update_checksum(buf, flags);
 
 	if (file != stdin) {
 		if (do_update) {
@@ -1322,6 +1362,13 @@ innochecksum_get_one_option(
 			srv_checksum_algorithm =
 				SRV_CHECKSUM_ALGORITHM_STRICT_NONE;
 			break;
+
+		case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
+		case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
+			srv_checksum_algorithm =
+				SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32;
+			break;
+
 		default:
 			return(true);
 		}
@@ -1415,28 +1462,23 @@ static bool check_encryption(const char* filename, const byte* page)
 	return (type == CRYPT_SCHEME_1);
 }
 
-/**
-Verify page checksum.
+/** Verify page checksum.
 @param[in] buf			page to verify
 @param[in] zip_size		ROW_FORMAT=COMPRESSED page size, or 0
 @param[in] is_encrypted		true if tablespace is encrypted
-@param[in] is_compressed	true if tablespace is page compressed
 @param[in,out] mismatch_count	Number of pages failed in checksum verify
-@retval 0 if page checksum matches or 1 if it does not match
-*/
-static
-int verify_checksum(
-	byte* buf,
-	ulint zip_size,
-	bool is_encrypted,
-	bool is_compressed,
-	unsigned long long* mismatch_count)
+@param[in]	flags		tablespace flags
+@retval 0 if page checksum matches or 1 if it does not match */
+static int verify_checksum(
+	byte*			buf,
+	bool			is_encrypted,
+	unsigned long long*	mismatch_count,
+	ulint			flags)
 {
 	int exit_status = 0;
 	bool is_corrupted = false;
 
-	is_corrupted = is_page_corrupted(
-		buf, zip_size, is_encrypted, is_compressed);
+	is_corrupted = is_page_corrupted(buf, is_encrypted, flags);
 
 	if (is_corrupted) {
 		fprintf(stderr, "Fail: page::%llu invalid\n",
@@ -1464,10 +1506,9 @@ int verify_checksum(
 @param[in]	filename	File name
 @param[in]	fil_in		File pointer
 @param[in]	buf		page
-@param[in]	zip_size	ROW_FORMAT=COMPRESSED page size, or 0
 @param[in]	pos		File position
 @param[in]	is_encrypted	true if tablespace is encrypted
-@param[in]	is_compressed	true if tablespace is page compressed
+@param[in]	flags		tablespace flags
 @retval 0 if checksum rewrite was successful, 1 if error was detected */
 static
 int
@@ -1475,19 +1516,23 @@ rewrite_checksum(
 	const char*	filename,
 	FILE*		fil_in,
 	byte*		buf,
-	ulint		zip_size,
 	fpos_t*		pos,
-	bool is_encrypted,
-	bool is_compressed)
+	bool		is_encrypted,
+	ulint		flags)
 {
 	int exit_status = 0;
+	bool is_compressed = false;
+
+	if (!FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
+		is_compressed = FSP_FLAGS_HAS_PAGE_COMPRESSION(flags);
+	}
+
 	/* Rewrite checksum. Note that for encrypted and
 	page compressed tables this is not currently supported. */
 	if (do_write &&
 		!is_encrypted &&
 		!is_compressed
-		&& !write_file(filename, fil_in, buf,
-			       zip_size, pos)) {
+		&& !write_file(filename, fil_in, buf, flags, pos)) {
 
 		exit_status = 1;
 	}
@@ -1668,10 +1713,9 @@ int main(
 
 		/* Determine page size, zip_size and page compression
 		from fsp_flags and encryption metadata from page 0 */
-		ulint zip_size = get_zip_size(buf);
+		init_page_size(buf);
 
 		ulint flags = mach_read_from_4(FSP_HEADER_OFFSET + FSP_SPACE_FLAGS + buf);
-		bool is_compressed = FSP_FLAGS_HAS_PAGE_COMPRESSION(flags);
 
 		if (physical_page_size > UNIV_ZIP_SIZE_MIN) {
 			/* Read rest of the page 0 to determine crypt_data */
@@ -1698,7 +1742,8 @@ int main(
 			unsigned long long tmp_allow_mismatches = allow_mismatches;
 			allow_mismatches = 0;
 
-			exit_status = verify_checksum(buf, zip_size, is_encrypted, is_compressed, &mismatch_count);
+			exit_status = verify_checksum(buf, is_encrypted,
+						      &mismatch_count, flags);
 
 			if (exit_status) {
 				fprintf(stderr, "Error: Page 0 checksum mismatch, can't continue. \n");
@@ -1707,8 +1752,9 @@ int main(
 			allow_mismatches = tmp_allow_mismatches;
 		}
 
-		if ((exit_status = rewrite_checksum(filename, fil_in, buf,
-					zip_size, &pos, is_encrypted, is_compressed))) {
+		if ((exit_status = rewrite_checksum(
+					filename, fil_in, buf,
+					&pos, is_encrypted, flags))) {
 			goto my_exit;
 		}
 
@@ -1874,13 +1920,15 @@ int main(
 			checksum verification.*/
 			if (!no_check
 			    && !skip_page
-			    && (exit_status = verify_checksum(buf, zip_size,
-					    is_encrypted, is_compressed, &mismatch_count))) {
+			    && (exit_status = verify_checksum(
+						buf, is_encrypted,
+						&mismatch_count, flags))) {
 				goto my_exit;
 			}
 
-			if ((exit_status = rewrite_checksum(filename, fil_in, buf,
-						zip_size, &pos, is_encrypted, is_compressed))) {
+			if ((exit_status = rewrite_checksum(
+						filename, fil_in, buf,
+						&pos, is_encrypted, flags))) {
 				goto my_exit;
 			}
 

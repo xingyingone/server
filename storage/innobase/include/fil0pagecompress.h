@@ -36,10 +36,20 @@ Created 11/12/2013 Jan Lindström jan.lindstrom@skysql.com
 @param[in]	level		compression level
 @param[in]	block_size	file system block size
 @param[in]	encrypted	whether the page will be subsequently encrypted
+@param[in]	flags		tablespace flags
 @return actual length of compressed page
 @retval	0	if the page was not compressed */
-ulint fil_page_compress(const byte* buf, byte* out_buf, ulint level,
-			ulint block_size, bool encrypted)
+ulint fil_page_compress(
+	const byte*	buf,
+	byte*		out_buf,
+	ulint		level,
+	ulint		block_size,
+	bool		encrypted
+#ifdef UNIV_DEBUG
+	,ulint		flags)
+#else
+	)
+#endif
 	MY_ATTRIBUTE((nonnull, warn_unused_result));
 
 /** Decompress a page that may be subject to page_compressed compression.

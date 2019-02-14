@@ -7964,14 +7964,18 @@ i_s_dict_fill_sys_tablespaces(
 
 	DBUG_ENTER("i_s_dict_fill_sys_tablespaces");
 
-	if (is_system_tablespace(space)) {
+	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
 		row_format = "Compact, Redundant or Dynamic";
-	} else if (FSP_FLAGS_GET_ZIP_SSIZE(flags)) {
-		row_format = "Compressed";
-	} else if (atomic_blobs) {
-		row_format = "Dynamic";
 	} else {
-		row_format = "Compact or Redundant";
+		if (is_system_tablespace(space)) {
+			row_format = "Compact, Redundant or Dynamic";
+		} else if (FSP_FLAGS_GET_ZIP_SSIZE(flags)) {
+			row_format = "Compressed";
+		} else if (atomic_blobs) {
+			row_format = "Dynamic";
+		} else {
+			row_format = "Compact or Redundant";
+		}
 	}
 
 	fields = table_to_fill->field;

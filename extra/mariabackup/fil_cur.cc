@@ -312,20 +312,31 @@ static bool page_is_corrupted(const byte *page, ulint page_no,
 		return false;
 	}
 
+	ulint key_version = buf_page_get_key_version(page, space->flags);
+
 	/* Validate encrypted pages. The first page is never encrypted.
 	In the system tablespace, the first page would be written with
 	FIL_PAGE_FILE_FLUSH_LSN at shutdown, and if the LSN exceeds
 	4,294,967,295, the mach_read_from_4() below would wrongly
 	interpret the page as encrypted. We prevent that by checking
 	page_no first. */
-	if (page_no
-	    && mach_read_from_4(page + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION)
+	if (page_no && key_version
 	    && (opt_encrypted_backup
 		|| (space->crypt_data
 		    && space->crypt_data->type != CRYPT_SCHEME_UNENCRYPTED))) {
 
-		if (!fil_space_verify_crypt_checksum(page, space->zip_size()))
+		bool use_full_checksum = fil_space_t::use_full_checksum(
+						space->flags);
+
+		if (use_full_checksum) {
+			if (buf_page_is_corrupted(
+				true, page, space->flags)) {
+				return true;
+			}
+		} else if (!fil_space_verify_crypt_checksum(
+				page, space->zip_size())) {
 			return true;
+		}
 
 		/* Compressed encrypted need to be decrypted
 		and decompressed for verification. */
@@ -343,8 +354,13 @@ static bool page_is_corrupted(const byte *page, ulint page_no,
 			return true;
 		}
 
+		if (use_full_checksum) {
+			return false;
+		}
+
 		if (page_type != FIL_PAGE_PAGE_COMPRESSED_ENCRYPTED) {
-			return buf_page_is_corrupted(true, tmp_page, 0, space);
+			return buf_page_is_corrupted(true, tmp_page,
+						     space->flags);
 		}
 	}
 
@@ -363,10 +379,10 @@ static bool page_is_corrupted(const byte *page, ulint page_no,
 			|| page_type == FIL_PAGE_PAGE_COMPRESSED
 			|| page_type == FIL_PAGE_PAGE_COMPRESSED_ENCRYPTED
 			|| buf_page_is_corrupted(true, tmp_page,
-						 space->zip_size(), space));
+						 space->flags));
 	}
 
-	return buf_page_is_corrupted(true, page, space->zip_size(), space);
+	return buf_page_is_corrupted(true, page, space->flags);
 }
 
 /************************************************************************

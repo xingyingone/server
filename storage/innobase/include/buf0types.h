@@ -82,8 +82,16 @@ enum srv_checksum_algorithm_t {
 						innodb when reading */
 	SRV_CHECKSUM_ALGORITHM_NONE,		/*!< Write none, allow crc32,
 						innodb or none when reading */
-	SRV_CHECKSUM_ALGORITHM_STRICT_NONE	/*!< Write none, allow none
+	SRV_CHECKSUM_ALGORITHM_STRICT_NONE,	/*!< Write none, allow none
 						when reading */
+
+	/* Write crc32 value for whole page, allow full crc32,
+	crc32, innodb or none when reading */
+	SRV_CHECKSUM_ALGORITHM_FULL_CRC32,
+
+	/* Write crc32 value for whole page, allow full crc32
+	value when reading */
+	SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32
 };
 
 inline
