@@ -457,14 +457,14 @@ is_page_corrupted(
 	ulint logseq;
 	ulint logseqfield;
 	ulint page_type = mach_read_from_2(buf+FIL_PAGE_TYPE);
-	ulint key_version = buf_page_get_key_version(buf, flags);
+	uint key_version = buf_page_get_key_version(buf, flags);
 	ulint space_id = mach_read_from_4(
 		buf + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 	ulint zip_size = 0;
 	ulint is_compressed = false;
-	bool  use_full_checksum = FSP_FLAGS_FCHKSUM_HAS_MARKER(flags);
+	bool  use_full_crc32 = FSP_FLAGS_FCHKSUM_HAS_MARKER(flags);
 
-	if (!use_full_checksum) {
+	if (!use_full_crc32) {
 		zip_size = FSP_FLAGS_GET_ZIP_SSIZE(flags);
 		if (zip_size) {
 			zip_size = (UNIV_ZIP_SIZE_MIN >> 1) << zip_size;
@@ -487,15 +487,11 @@ is_page_corrupted(
 		/* check the stored log sequence numbers
 		for uncompressed tablespace. */
 		logseq = mach_read_from_4(buf + FIL_PAGE_LSN + 4);
-		logseqfield = mach_read_from_4(
-				buf + srv_page_size -
-				FIL_PAGE_END_LSN_OLD_CHKSUM + 4);
-
-		if (use_full_checksum) {
-			logseqfield = mach_read_from_4(
-					buf + srv_page_size -
-					FIL_PAGE_FCHKSUM_END_LSN);
-		}
+		logseqfield = use_full_crc32
+			? mach_read_from_4(buf + srv_page_size
+					   - FIL_PAGE_FCHKSUM_END_LSN)
+			: mach_read_from_4(buf + srv_page_size
+					   - FIL_PAGE_END_LSN_OLD_CHKSUM + 4);
 
 		if (is_log_enabled) {
 			fprintf(log_file,
@@ -523,12 +519,9 @@ is_page_corrupted(
 	so if crypt checksum does not match we verify checksum using
 	normal method. */
 	if (is_encrypted && key_version != 0) {
-
-		if (use_full_checksum) {
-			is_corrupted = buf_page_is_corrupted(true, buf, flags);
-		} else {
-			is_corrupted = !fil_space_verify_crypt_checksum(buf, zip_size);
-		}
+		is_corrupted = use_full_crc32
+			? buf_page_is_corrupted(true, buf, flags)
+			: !fil_space_verify_crypt_checksum(buf, zip_size);
 
 		if (is_corrupted && log_file) {
 			fprintf(log_file,
@@ -611,12 +604,9 @@ static bool update_checksum(byte* page, ulint flags)
 		return (false);
 	}
 
-	bool iscompressed = false;
-	bool use_full_checksum = FSP_FLAGS_FCHKSUM_HAS_MARKER(flags);
-
-	if (!use_full_checksum) {
-		iscompressed = FSP_FLAGS_GET_ZIP_SSIZE(flags) != 0;
-	}
+	const bool use_full_crc32 = FSP_FLAGS_FCHKSUM_HAS_MARKER(flags);
+	const bool iscompressed = !use_full_crc32
+		&& FSP_FLAGS_GET_ZIP_SSIZE(flags);
 
 	memcpy(stored1, page + FIL_PAGE_SPACE_OR_CHKSUM, 4);
 	memcpy(stored2, page + physical_page_size -
@@ -645,16 +635,18 @@ static bool update_checksum(byte* page, ulint flags)
 				" %u\n", cur_page_num, checksum);
 		}
 
+	} else if (use_full_crc32) {
+		checksum = buf_calc_page_full_crc32(page);
+		byte* c = page + physical_page_size - FIL_PAGE_FCHKSUM_CRC32;
+		if (mach_read_from_4(c) == checksum) return false;
+		mach_write_to_4(c, checksum);
+		if (is_log_enabled) {
+			fprintf(log_file, "page::%llu; Updated checksum"
+				" = %u\n", cur_page_num, checksum);
+		}
+		return true;
 	} else {
 		/* page is uncompressed. */
-
-		if (use_full_checksum) {
-			checksum = buf_calc_page_full_crc32(page);
-			mach_write_to_4(page + (physical_page_size
-						- FIL_PAGE_FCHKSUM_CRC32),
-					checksum);
-			return true;			
-		}
 
 		/* Store the new formula checksum */
 		switch ((srv_checksum_algorithm_t) write_check) {
@@ -1476,11 +1468,7 @@ static int verify_checksum(
 	ulint			flags)
 {
 	int exit_status = 0;
-	bool is_corrupted = false;
-
-	is_corrupted = is_page_corrupted(buf, is_encrypted, flags);
-
-	if (is_corrupted) {
+	if (is_page_corrupted(buf, is_encrypted, flags)) {
 		fprintf(stderr, "Fail: page::%llu invalid\n",
 			cur_page_num);
 
