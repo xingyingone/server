@@ -886,7 +886,7 @@ static bool fil_space_decrypt_for_full_checksum(
 
 	int rc = encryption_scheme_decrypt(src, srclen, dst, &dstlen,
 					   crypt_data, key_version,
-					   space, offset, lsn);
+					   (uint) space, offset, lsn);
 
 	if (rc != MY_AES_OK || dstlen != srclen) {
 		if (rc == -1) {

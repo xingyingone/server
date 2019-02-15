@@ -1118,7 +1118,9 @@ nonzero:
 		crc32_chksum =
 			(srv_checksum_algorithm == SRV_CHECKSUM_ALGORITHM_CRC32
 			 || srv_checksum_algorithm
-			     == SRV_CHECKSUM_ALGORITHM_FULL_CRC32);
+			    == SRV_CHECKSUM_ALGORITHM_FULL_CRC32
+			 || srv_checksum_algorithm
+			    == SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32);
 
 		/* Very old versions of InnoDB only stored 8 byte lsn to the
 		start and the end of the page. */
@@ -5873,7 +5875,7 @@ buf_mark_space_corrupt(buf_page_t* bpage, const fil_space_t* space)
 @param[in]	dst_frame	page
 @return true if page is corrupted or false if it isn't */
 static bool buf_encrypted_full_crc32_page_is_corrupted(
-	uint		space_id,
+	ulint		space_id,
 	const byte*	dst_frame)
 {
 	if (memcmp(dst_frame + FIL_PAGE_LSN + 4,
