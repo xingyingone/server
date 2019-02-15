@@ -115,9 +115,9 @@ fil_page_type_validate(
 		ulint key_version = mach_read_from_4(
 			page + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION);
 
-		if (rspace && FSP_FLAGS_FCHKSUM_HAS_MARKER(rspace->flags)) {
+		if (rspace && rspace->full_crc32()) {
 			key_version = mach_read_from_4(
-					page + FIL_PAGE_FCHKSUM_KEY_VERSION);
+				page + FIL_PAGE_FCHKSUM_KEY_VERSION);
 		}
 
 		/* Dump out the page info */

@@ -256,16 +256,14 @@ struct fil_space_t {
 	/** @return whether I/O is pending */
 	bool pending_io() const { return n_pending_ios; }
 
-	/** Determine the full checksum used.
+	/** Determine if full_crc32 is used for a data file
 	@param[in]	flags	tablespace flags (FSP_FLAGS)
-	@return whether it uses full checksum algorithm */
-	static bool use_full_checksum(ulint flags) {
+	@return whether the full_crc32 algorithm is active */
+	static bool full_crc32(ulint flags) {
 		return flags & FSP_FLAGS_FCHKSUM_MASK_MARKER;
 	}
-	/** @return whether full checksum algorithm used. */
-	bool use_full_checksum() const {
-		return use_full_checksum(flags);
-	}
+	/** @return whether innodb_checksum_algorithm=full_crc32 is active */
+	bool full_crc32() const { return full_crc32(flags); }
 	/** Determine the logical page size.
 	@param	flags	tablespace flags (FSP_FLAGS)
 	@return the logical page size
@@ -274,7 +272,7 @@ struct fil_space_t {
 
 		ulint page_ssize = 0;
 
-		if (use_full_checksum(flags)) {
+		if (full_crc32(flags)) {
 			page_ssize = FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags);
 		} else {
 			page_ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
@@ -284,9 +282,9 @@ struct fil_space_t {
 		case 3: return 4096;
 		case 4: return 8192;
 		case 5:
-		{ ut_ad(use_full_checksum(flags)); return 16384; }
+		{ ut_ad(full_crc32(flags)); return 16384; }
 		case 0:
-		{ ut_ad(!use_full_checksum(flags)); return 16384; }
+		{ ut_ad(!full_crc32(flags)); return 16384; }
 		case 6: return 32768;
 		case 7: return 65536;
 		default: return 0;
@@ -298,7 +296,7 @@ struct fil_space_t {
 	@retval 0	if ROW_FORMAT=COMPRESSED is not used */
 	static ulint zip_size(ulint flags) {
 
-		if (use_full_checksum(flags)) {
+		if (full_crc32(flags)) {
 			return 0;
 		}
 
@@ -311,7 +309,7 @@ struct fil_space_t {
 	@return the physical page size */
 	static ulint physical_size(ulint flags) {
 
-		if (use_full_checksum(flags)) {
+		if (full_crc32(flags)) {
 			return srv_page_size;
 		}
 
@@ -329,7 +327,7 @@ struct fil_space_t {
 	@param[in]	flags	tablespace flags */
 	static bool is_compressed(ulint flags) {
 
-		if (use_full_checksum(flags)) {
+		if (full_crc32(flags)) {
 			ulint algo = FSP_FLAGS_FCHKSUM_GET_COMPRESSED_ALGO(
 					flags);
 			ut_ad(algo < 6);
@@ -342,46 +340,46 @@ struct fil_space_t {
 	bool is_compressed() { return is_compressed(flags); }
 	/** Whether the full checksum matches with non full checksum flags.
 	@param[in]	flags		flags present
-	@param[in]	expected_flags	expecting flags
+	@param[in]	expected	expected flags
 	@return true if it is equivalent */
-	static bool is_flags_full_crc32_equal(ulint flags, ulint expected_flags)
+	static bool is_flags_full_crc32_equal(ulint flags, ulint expected)
 	{
-		ut_ad(use_full_checksum(flags));
+		ut_ad(full_crc32(flags));
 
-		if (use_full_checksum(expected_flags)) {
+		if (full_crc32(expected)) {
 			return false;
 		}
 
 		ulint page_ssize = FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags);
-		ulint space_page_ssize = FSP_FLAGS_GET_PAGE_SSIZE(expected_flags);
+		ulint space_page_ssize = FSP_FLAGS_GET_PAGE_SSIZE(expected);
 
 		if ((page_ssize == 5 && space_page_ssize != 0)
 		    || (page_ssize != 5 && (space_page_ssize != page_ssize))) {
 			return false;
 		}
 
-		if (FSP_FLAGS_HAS_PAGE_COMPRESSION(expected_flags)) {
+		if (FSP_FLAGS_HAS_PAGE_COMPRESSION(expected)) {
 			return false;
 		}
 
 		return true;
 	}
-	/** Whether the non full checksum matches with full checksum table flags.
+	/** Whether old tablespace flags match full_crc32 flags.
 	@param[in]	flags		flags present
-	@param[in]	expected_flags	expecting flags
+	@param[in]	expected	expected flags
 	@return true if it is equivalent */
-	static bool is_flags_non_full_crc32_equal(ulint flags, ulint expected_flags)
+	static bool is_flags_non_full_crc32_equal(ulint flags, ulint expected)
 	{
-		ut_ad(!use_full_checksum(flags));
+		ut_ad(!full_crc32(flags));
 
-		if (!use_full_checksum(expected_flags)
-		    || FSP_FLAGS_HAS_PAGE_COMPRESSION(expected_flags)) {
+		if (!full_crc32(expected)
+		    || FSP_FLAGS_HAS_PAGE_COMPRESSION(expected)) {
 			return false;
 		}
 
 		ulint page_ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
 		ulint space_page_ssize = FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(
-					expected_flags);
+			expected);
 
 		if ((page_ssize == 0 && space_page_ssize != 5)
 		    || (page_ssize != 0 && (space_page_ssize != page_ssize))) {
@@ -391,19 +389,15 @@ struct fil_space_t {
 		return true;
 	}
 	/** Whether both fsp flags are equivalent */
-	static bool is_flags_equal(ulint flags, ulint expected_flags)
+	static bool is_flags_equal(ulint flags, ulint expected)
 	{
-		bool is_equal = !((flags ^ expected_flags)
-				  & ~(1U << FSP_FLAGS_POS_RESERVED));
-		if (is_equal) {
+		if (!((flags ^ expected) & ~(1U << FSP_FLAGS_POS_RESERVED))) {
 			return true;
 		}
 
-		if (use_full_checksum(flags)) {
-			return is_flags_full_crc32_equal(flags, expected_flags);
-		}
-
-		return is_flags_non_full_crc32_equal(flags, expected_flags);
+		return full_crc32(flags)
+			? is_flags_full_crc32_equal(flags, expected)
+			: is_flags_non_full_crc32_equal(flags, expected);
 	}
 };
 

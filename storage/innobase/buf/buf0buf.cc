@@ -896,80 +896,8 @@ bool buf_page_is_checksum_valid_full_crc32(
 	return checksum_field == full_crc32;
 }
 
-/** Check if a page is corrupt.
-@param[in]	check_lsn	whether the LSN should be checked
-@param[in]	read_buf	database page
-@param[in]	zip_size	ROW_FORMAT=COMPRESSED page size, or 0
-@param[in]	space		tablespace
-@return whether the page is corrupted */
-bool
-buf_page_is_corrupted(
-	bool			check_lsn,
-	const byte*		read_buf,
-	ulint			fsp_flags)
+static void buf_page_check_lsn(bool check_lsn, const byte* read_buf)
 {
-#ifndef UNIV_INNOCHECKSUM
-	DBUG_EXECUTE_IF("buf_page_import_corrupt_failure", return(true); );
-#endif
-	size_t		checksum_field1 = 0;
-	size_t		checksum_field2 = 0;
-	uint32_t	crc32 = 0;
-	bool		crc32_inited = false;
-	bool		use_full_checksum =
-			FSP_FLAGS_FCHKSUM_HAS_MARKER(fsp_flags);
-	ulint		zip_size = 0;
-	bool		crc32_chksum = false;
-	bool		full_checksum_encrypted = false;
-
-	if (!use_full_checksum) {
-		zip_size = FSP_FLAGS_GET_ZIP_SSIZE(fsp_flags);
-		if (zip_size) {
-			zip_size = (UNIV_ZIP_SIZE_MIN >> 1) << zip_size;
-		}
-	} else {
-		full_checksum_encrypted = mach_read_from_4(
-				read_buf + FIL_PAGE_FCHKSUM_KEY_VERSION);
-	}
-
-	ulint page_type = mach_read_from_2(read_buf + FIL_PAGE_TYPE);
-
-	/* We can trust page type if page compression is set on tablespace
-	flags because page compression flag means file must have been
-	created with 10.1 (later than 5.5 code base). In 10.1 page
-	compressed tables do not contain post compression checksum and
-	FIL_PAGE_END_LSN_OLD_CHKSUM field stored. Note that space can
-	be null if we are in fil_check_first_page() and first page
-	is not compressed or encrypted. Page checksum is verified
-	after decompression (i.e. normally pages are already
-	decompressed at this stage). */
-	if ((page_type == FIL_PAGE_PAGE_COMPRESSED ||
-	     page_type == FIL_PAGE_PAGE_COMPRESSED_ENCRYPTED)
-#ifndef UNIV_INNOCHECKSUM
-	    && FSP_FLAGS_HAS_PAGE_COMPRESSION(fsp_flags)
-#endif
-	) {
-		return(false);
-	}
-
-	if (use_full_checksum) {
-		if (!full_checksum_encrypted
-		    && memcmp(
-			read_buf + FIL_PAGE_LSN + 4,
-			read_buf + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN,
-			4)) {
-			return true;
-		}
-	} else if (!zip_size
-		   && memcmp(read_buf + FIL_PAGE_LSN + 4,
-			     read_buf + srv_page_size
-		             - FIL_PAGE_END_LSN_OLD_CHKSUM + 4, 4)) {
-
-		/* Stored log sequence numbers at the start and the end
-		of page do not match */
-
-		return(true);
-	}
-
 #ifndef UNIV_INNOCHECKSUM
 	if (check_lsn && recv_lsn_checks_on) {
 		lsn_t		current_lsn;
@@ -1001,6 +929,90 @@ buf_page_is_corrupted(
 		}
 	}
 #endif /* !UNIV_INNOCHECKSUM */
+}
+
+/** Check if a page is corrupt.
+@param[in]	check_lsn	whether the LSN should be checked
+@param[in]	read_buf	database page
+@param[in]	zip_size	ROW_FORMAT=COMPRESSED page size, or 0
+@param[in]	space		tablespace
+@return whether the page is corrupted */
+bool
+buf_page_is_corrupted(
+	bool			check_lsn,
+	const byte*		read_buf,
+	ulint			fsp_flags)
+{
+#ifndef UNIV_INNOCHECKSUM
+	DBUG_EXECUTE_IF("buf_page_import_corrupt_failure", return(true); );
+#endif
+	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(fsp_flags)) {
+		const byte* end = read_buf + srv_page_size;
+		uint crc32 = mach_read_from_4(end - FIL_PAGE_FCHKSUM_CRC32);
+		if (!crc32) {
+			const byte* b = read_buf;
+			while (b != end) if (*b++) goto nonzero;
+			/* An all-zero page is not corrupted. */
+			return false;
+		}
+nonzero:
+		if (!buf_page_is_checksum_valid_full_crc32(read_buf, crc32)) {
+			return true;
+		}
+
+		if (!mach_read_from_4(read_buf + FIL_PAGE_FCHKSUM_KEY_VERSION)
+		    && memcmp(read_buf + (FIL_PAGE_LSN + 4),
+			      end - FIL_PAGE_FCHKSUM_END_LSN, 4)) {
+			return true;
+		}
+
+		buf_page_check_lsn(check_lsn, read_buf);
+		return true;
+	}
+
+	size_t		checksum_field1 = 0;
+	size_t		checksum_field2 = 0;
+	uint32_t	crc32 = 0;
+	bool		crc32_inited = false;
+	ulint		zip_size = 0;
+	bool		crc32_chksum = false;
+
+	zip_size = FSP_FLAGS_GET_ZIP_SSIZE(fsp_flags);
+	if (zip_size) {
+		zip_size = (UNIV_ZIP_SIZE_MIN >> 1) << zip_size;
+	}
+
+	ulint page_type = mach_read_from_2(read_buf + FIL_PAGE_TYPE);
+
+	/* We can trust page type if page compression is set on tablespace
+	flags because page compression flag means file must have been
+	created with 10.1 (later than 5.5 code base). In 10.1 page
+	compressed tables do not contain post compression checksum and
+	FIL_PAGE_END_LSN_OLD_CHKSUM field stored. Note that space can
+	be null if we are in fil_check_first_page() and first page
+	is not compressed or encrypted. Page checksum is verified
+	after decompression (i.e. normally pages are already
+	decompressed at this stage). */
+	if ((page_type == FIL_PAGE_PAGE_COMPRESSED ||
+	     page_type == FIL_PAGE_PAGE_COMPRESSED_ENCRYPTED)
+#ifndef UNIV_INNOCHECKSUM
+	    && FSP_FLAGS_HAS_PAGE_COMPRESSION(fsp_flags)
+#endif
+	) {
+		return(false);
+	}
+
+	if (!zip_size && memcmp(read_buf + FIL_PAGE_LSN + 4,
+				read_buf + srv_page_size
+				- FIL_PAGE_END_LSN_OLD_CHKSUM + 4, 4)) {
+
+		/* Stored log sequence numbers at the start and the end
+		of page do not match */
+
+		return(true);
+	}
+
+	buf_page_check_lsn(check_lsn, read_buf);
 
 	/* Check whether the checksum fields have correct values */
 
@@ -1015,13 +1027,8 @@ buf_page_is_corrupted(
 	checksum_field1 = mach_read_from_4(
 		read_buf + FIL_PAGE_SPACE_OR_CHKSUM);
 
-	if (use_full_checksum) {
-		checksum_field2 = mach_read_from_4(
-			read_buf + srv_page_size - FIL_PAGE_FCHKSUM_CRC32);
-	} else {
-		checksum_field2 = mach_read_from_4(
-			read_buf + srv_page_size - FIL_PAGE_END_LSN_OLD_CHKSUM);
-	}
+	checksum_field2 = mach_read_from_4(
+		read_buf + srv_page_size - FIL_PAGE_END_LSN_OLD_CHKSUM);
 
 	compile_time_assert(!(FIL_PAGE_LSN % 8));
 
@@ -1034,7 +1041,6 @@ buf_page_is_corrupted(
 		/* make sure that the page is really empty */
 		for (ulint i = 0; i < srv_page_size; i++) {
 			if (read_buf[i] != 0) {
-				fprintf(stderr, "empty page\n");
 				return(true);
 			}
 		}
@@ -1062,27 +1068,9 @@ buf_page_is_corrupted(
 		return !buf_page_is_checksum_valid_none(
 			read_buf, checksum_field1, checksum_field2);
 	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
-		if (!use_full_checksum) {
-			return true;
-		}
-
-		return !buf_page_is_checksum_valid_full_crc32(
-			read_buf, checksum_field2);
 	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_INNODB:
-		if (use_full_checksum) {
-			DBUG_EXECUTE_IF(
-				"page_intermittent_checksum_mismatch", {
-				static int page_counter;
-				if (page_counter++ == 2) {
-					checksum_field2++;
-				}
-			});
-			return !buf_page_is_checksum_valid_full_crc32(
-					read_buf, checksum_field2);
-		}
-
 		if (buf_page_is_checksum_valid_none(read_buf,
 			checksum_field1, checksum_field2)) {
 #ifdef UNIV_INNOCHECKSUM
@@ -5903,8 +5891,7 @@ static dberr_t buf_page_check_corrupt(buf_page_t* bpage, fil_space_t* space)
 	if (!still_encrypted) {
 		/* If traditional checksums match, we assume that page is
 		not anymore encrypted. */
-		if (fil_space_t::use_full_checksum(space->flags)
-		    && key_version) {
+		if (space->full_crc32() && key_version) {
 			if (memcmp(
 				dst_frame + FIL_PAGE_LSN + 4,
 				dst_frame + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN,
@@ -7261,13 +7248,11 @@ This function should be called only if tablespace contains crypt data metadata.
 @param[in]	page		page frame
 @param[in]	fsp_flags	tablespace flags
 @return true if true if page is encrypted and OK, false otherwise */
-bool buf_page_verify_crypt_checksum(
-	const byte*	page,
-	ulint		fsp_flags)
+bool buf_page_verify_crypt_checksum(const byte* page, ulint fsp_flags)
 {
-	if (!fil_space_t::use_full_checksum(fsp_flags)) {
+	if (!fil_space_t::full_crc32(fsp_flags)) {
 		return fil_space_verify_crypt_checksum(
-				page, fil_space_t::zip_size(fsp_flags));
+			page, fil_space_t::zip_size(fsp_flags));
 	}
 
 	return !buf_page_is_corrupted(true, page, fsp_flags);
@@ -7385,12 +7370,11 @@ buf_page_encrypt(
 		    || srv_encrypt_tables);
 
 	bool page_compressed = FSP_FLAGS_HAS_PAGE_COMPRESSION(space->flags);
-	bool use_full_checksum = FSP_FLAGS_FCHKSUM_HAS_MARKER(space->flags);
 
 	if (!encrypted && !page_compressed) {
 		/* No need to encrypt or page compress the page.
 		Clear key-version & crypt-checksum. */
-		if (use_full_checksum) {
+		if (space->full_crc32()) {
 			memset(src_frame + FIL_PAGE_FCHKSUM_KEY_VERSION, 0, 4);
 		} else {
 			memset(src_frame + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION,

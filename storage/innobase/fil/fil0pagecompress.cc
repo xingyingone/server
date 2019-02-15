@@ -261,7 +261,7 @@ success:
 		memcpy(page, out_buf, srv_page_size);
 		ut_ad(fil_page_decompress(tmp_buf, page));
 		ulint fsp_flags = 0;
-		if (fil_space_t::use_full_checksum(flags)) {
+		if (fil_space_t::full_crc32(flags)) {
 			/* Need to construct flag for new crc32 checksum */
 			fsp_flags = 1U << FSP_FLAGS_FCHKSUM_POS_MARKER;
 			fsp_flags |= FSP_FLAGS_FCHKSUM_PAGE_SSIZE();

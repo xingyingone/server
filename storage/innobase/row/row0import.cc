@@ -2025,9 +2025,10 @@ dberr_t PageConverter::operator()(buf_block_t* block) UNIV_NOTHROW
 	dberr_t err = update_page(block, page_type);
 	if (err != DB_SUCCESS) return err;
 
-	if (!block->page.zip.data) {
+	const bool full_crc32 = fil_space_t::full_crc32(get_space_flags());
 
-		if (fil_space_t::use_full_checksum(get_space_flags())
+	if (!block->page.zip.data) {
+		if (full_crc32
 		    && block->page.encrypted && block->page.id.page_no() > 0) {
 			byte* page = block->frame;
 			mach_write_to_8(page + FIL_PAGE_LSN, m_current_lsn);
@@ -2038,13 +2039,11 @@ dberr_t PageConverter::operator()(buf_block_t* block) UNIV_NOTHROW
 		}
 
 		buf_flush_init_for_writing(
-			NULL, block->frame, NULL, m_current_lsn,
-			fil_space_t::use_full_checksum(get_space_flags()));
+			NULL, block->frame, NULL, m_current_lsn, full_crc32);
 	} else if (fil_page_type_is_index(page_type)) {
 		buf_flush_init_for_writing(
 			NULL, block->page.zip.data, &block->page.zip,
-			m_current_lsn,
-			fil_space_t::use_full_checksum(get_space_flags()));
+			m_current_lsn, full_crc32);
 	} else {
 		/* Calculate and update the checksum of non-index
 		pages for ROW_FORMAT=COMPRESSED tables. */
@@ -3328,6 +3327,9 @@ fil_iterate(
 		return DB_OUT_OF_MEMORY;
 	}
 
+	const bool full_crc32 = fil_space_t::full_crc32(
+		callback.get_space_flags());
+
 	/* TODO: For ROW_FORMAT=COMPRESSED tables we do a lot of useless
 	copying for non-index pages. Unfortunately, it is
 	required by buf_zip_decompress() */
@@ -3460,10 +3462,8 @@ not_encrypted:
 
 			/* For full_crc32 format, skip checksum check
 			after decryption. */
-			bool skip_checksum_check =
-				(encrypted && block->page.id.page_no() > 0
-				 && fil_space_t::use_full_checksum(
-					callback.get_space_flags()));
+			bool skip_checksum_check = full_crc32 && encrypted
+				 && block->page.id.page_no() > 0;
 
 			/* If the original page is page_compressed, we need
 			to decompress it before adjusting further. */
@@ -3562,17 +3562,13 @@ not_encrypted:
 			if (encrypted && decrypted) {
 				byte *dest = writeptr + i * size;
 
-				bool use_full_cksum =
-					fil_space_t::use_full_checksum(
-						callback.get_space_flags());
-
 				byte* tmp = fil_encrypt_buf(
 					iter.crypt_data,
 					block->page.id.space(),
 					block->page.id.page_no(),
 					mach_read_from_8(src + FIL_PAGE_LSN),
 					src, block->zip_size(), dest,
-					use_full_cksum);
+					full_crc32);
 
 				if (tmp == src) {
 					/* TODO: remove unnecessary memcpy's */

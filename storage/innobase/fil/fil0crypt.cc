@@ -743,10 +743,7 @@ static bool fil_space_encrypt_valid_page_type(
 {
 	switch (mach_read_from_2(src_frame+FIL_PAGE_TYPE)) {
 	case FIL_PAGE_RTREE:
-		if (space->use_full_checksum()) {
-			return true;
-		}
-	/* FALL THROUGH */
+		return space->full_crc32();
 	case FIL_PAGE_TYPE_FSP_HDR:
 	case FIL_PAGE_TYPE_XDES:
 		return false;
@@ -785,9 +782,9 @@ fil_space_encrypt(
 	const ulint zip_size = space->zip_size();
 	ut_ad(space->pending_io());
 
-	bool use_full_checksum = space->use_full_checksum();
+	const bool full_crc32 = space->full_crc32();
 
-	if (use_full_checksum) {
+	if (full_crc32) {
 		/* Write LSN for the full crc32 checksum before
 		encryption. Because lsn is one of the input for encryption. */
 		mach_write_to_8(src_frame + FIL_PAGE_LSN, lsn);
@@ -798,7 +795,7 @@ fil_space_encrypt(
 
 	byte* tmp = fil_encrypt_buf(crypt_data, space->id, offset, lsn,
 				    src_frame, zip_size, dst_frame,
-				    use_full_checksum);
+				    full_crc32);
 
 #ifdef UNIV_DEBUG
 	if (tmp) {
@@ -819,7 +816,7 @@ fil_space_encrypt(
 			}
 		}
 
-		ut_ad(use_full_checksum
+		ut_ad(full_crc32
 		      || !buf_page_is_corrupted(true, src, space->flags));
 
 		ut_ad(fil_space_decrypt(space->id, crypt_data, tmp_mem,
@@ -835,8 +832,7 @@ fil_space_encrypt(
 			ut_ad(unzipped2);
 		}
 
-		if (use_full_checksum) {
-
+		if (full_crc32) {
 			memcpy(tmp_mem, src, FIL_PAGE_OFFSET);
 			ut_ad(!memcmp(src, tmp_mem,
 				      (space->physical_size()
@@ -1022,7 +1018,7 @@ fil_space_decrypt(
 	byte*			src_frame,
 	dberr_t*		err)
 {
-	if (fil_space_t::use_full_checksum(fsp_flags)) {
+	if (fil_space_t::full_crc32(fsp_flags)) {
 		return fil_space_decrypt_for_full_checksum(
 			space_id, crypt_data, tmp_frame, src_frame, err);
 	}

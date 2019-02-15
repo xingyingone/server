@@ -3023,7 +3023,7 @@ err_exit:
 
 	memset(page, '\0', srv_page_size);
 
-	if (fil_space_t::use_full_checksum(flags)) {
+	if (fil_space_t::full_crc32(flags)) {
 		flags |= FSP_FLAGS_FCHKSUM_PAGE_SSIZE();
 	} else {
 		flags |= FSP_FLAGS_PAGE_SSIZE();
@@ -3042,16 +3042,13 @@ err_exit:
 			page_zip.m_end = page_zip.m_nonempty =
 			page_zip.n_blobs = 0;
 
-		buf_flush_init_for_writing(
-			NULL, page, &page_zip, 0,
-			fil_space_t::use_full_checksum(flags));
+		buf_flush_init_for_writing(NULL, page, &page_zip, 0, false);
 
 		*err = os_file_write(
 			IORequestWrite, path, file, page_zip.data, 0, zip_size);
 	} else {
-		buf_flush_init_for_writing(
-			NULL, page, NULL, 0,
-			fil_space_t::use_full_checksum(flags));
+		buf_flush_init_for_writing(NULL, page, NULL, 0,
+					   fil_space_t::full_crc32(flags));
 
 		*err = os_file_write(
 			IORequestWrite, path, file, page, 0, srv_page_size);

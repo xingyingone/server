@@ -7964,7 +7964,7 @@ i_s_dict_fill_sys_tablespaces(
 
 	DBUG_ENTER("i_s_dict_fill_sys_tablespaces");
 
-	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
+	if (fil_space_t::full_crc32(flags)) {
 		row_format = NULL;
 	} else if (is_system_tablespace(space)) {
 		row_format = "Compact, Redundant or Dynamic";

@@ -312,7 +312,7 @@ static bool page_is_corrupted(const byte *page, ulint page_no,
 		return false;
 	}
 
-	if (space->use_full_checksum()) {
+	if (space->full_crc32()) {
 		return buf_page_is_corrupted(true, page, space->flags);
 	}
 

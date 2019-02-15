@@ -958,7 +958,7 @@ buf_flush_write_block_low(
 	      == (space == fil_system.temp_space));
 
 	page_t*	frame = NULL;
-	bool	use_full_checksum = space->use_full_checksum();
+	const bool full_crc32 = space->full_crc32();
 
 #ifdef UNIV_DEBUG
 	buf_pool_t*	buf_pool = buf_pool_from_bpage(bpage);
@@ -1018,7 +1018,7 @@ buf_flush_write_block_low(
 
 		byte* page = reinterpret_cast<const buf_block_t*>(bpage)->frame;
 
-		if (use_full_checksum) {
+		if (full_crc32) {
 			page = buf_page_encrypt(space, bpage, page);
 			frame = page;
 		}
@@ -1026,11 +1026,11 @@ buf_flush_write_block_low(
 		buf_flush_init_for_writing(
 			reinterpret_cast<const buf_block_t*>(bpage), page,
 			bpage->zip.data ? &bpage->zip : NULL,
-			bpage->newest_modification, use_full_checksum);
+			bpage->newest_modification, full_crc32);
 		break;
 	}
 
-	if (!use_full_checksum) {
+	if (!full_crc32) {
 		frame = buf_page_encrypt(space, bpage, frame);
 	}
 
