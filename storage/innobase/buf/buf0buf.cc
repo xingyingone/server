@@ -491,7 +491,7 @@ static bool buf_page_decrypt_after_read(buf_page_t* bpage, fil_space_t* space)
 	also for pages first compressed and then encrypted. */
 
 	buf_tmp_buffer_t* slot;
-	ulint key_version = buf_page_get_key_version(dst_frame, space->flags);
+	uint key_version = buf_page_get_key_version(dst_frame, space->flags);
 
 	if (page_compressed) {
 		/* the page we read is unencrypted */
@@ -1200,24 +1200,6 @@ buf_page_is_corrupted(
 	}
 
 	return false;
-}
-
-/** Read the key version from the page. In full crc32 format,
-key version is stored at {0-3th} bytes. In other format, it is
-stored in 26th position.
-@param[in]	read_buf	database page
-@param[in]	fsp_flags	tablespace flags
-@return key version of the page. */
-ulint buf_page_get_key_version(
-	const byte*	read_buf,
-	ulint		fsp_flags)
-{
-	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(fsp_flags)) {
-		return mach_read_from_4(read_buf + FIL_PAGE_FCHKSUM_KEY_VERSION);
-	}
-
-	return mach_read_from_4(
-		read_buf + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION);
 }
 
 #ifndef UNIV_INNOCHECKSUM
@@ -5903,7 +5885,7 @@ static dberr_t buf_page_check_corrupt(buf_page_t* bpage, fil_space_t* space)
 		((buf_block_t*) bpage)->frame;
 	dberr_t err = DB_SUCCESS;
 	bool corrupted = false;
-	ulint key_version = buf_page_get_key_version(dst_frame, space->flags);
+	uint key_version = buf_page_get_key_version(dst_frame, space->flags);
 
 	/* In buf_decrypt_after_read we have either decrypted the page if
 	page post encryption checksum matches and used key_id is found

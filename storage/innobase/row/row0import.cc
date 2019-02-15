@@ -3420,8 +3420,8 @@ page_corrupted:
 			bool decrypted = false;
 			byte* dst = io_buffer + i * size;
 			bool frame_changed = false;
-			ulint key_version = buf_page_get_key_version(
-						src, callback.get_space_flags());
+			uint key_version = buf_page_get_key_version(
+				src, callback.get_space_flags());
 
 			if (!encrypted) {
 			} else if (!key_version) {

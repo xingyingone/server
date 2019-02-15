@@ -1520,24 +1520,13 @@ rewrite_checksum(
 	bool		is_encrypted,
 	ulint		flags)
 {
-	int exit_status = 0;
-	bool is_compressed = false;
-
-	if (!FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
-		is_compressed = FSP_FLAGS_HAS_PAGE_COMPRESSION(flags);
-	}
+	bool is_compressed = !FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)
+		&& FSP_FLAGS_HAS_PAGE_COMPRESSION(flags);
 
 	/* Rewrite checksum. Note that for encrypted and
 	page compressed tables this is not currently supported. */
-	if (do_write &&
-		!is_encrypted &&
-		!is_compressed
-		&& !write_file(filename, fil_in, buf, flags, pos)) {
-
-		exit_status = 1;
-	}
-
-	return (exit_status);
+	return do_write && !is_encrypted && !is_compressed
+		&& !write_file(filename, fil_in, buf, flags, pos);
 }
 
 int main(
