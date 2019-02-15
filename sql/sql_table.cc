@@ -8300,6 +8300,13 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
       key_part_length= key_part->length;
       if (cfield->field)			// Not new field
       {
+        if (key_info->algorithm == HA_KEY_ALG_LONG_HASH)
+        {
+          Field *fld= cfield->field;
+          if (fld->max_display_length() == cfield->length*fld->charset()->mbmaxlen
+                      && fld->max_data_length() != key_part->length)
+            cfield->length= cfield->char_length= key_part->length;
+        }
         /*
           If the field can't have only a part used in a key according to its
           new type, or should not be used partially according to its
