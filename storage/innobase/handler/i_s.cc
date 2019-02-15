@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2007, 2016, Oracle and/or its affiliates. All Rights Reserved.
-Copyright (c) 2014, 2018, MariaDB Corporation.
+Copyright (c) 2014, 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -7965,17 +7965,15 @@ i_s_dict_fill_sys_tablespaces(
 	DBUG_ENTER("i_s_dict_fill_sys_tablespaces");
 
 	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
+		row_format = NULL;
+	} else if (is_system_tablespace(space)) {
 		row_format = "Compact, Redundant or Dynamic";
+	} else if (FSP_FLAGS_GET_ZIP_SSIZE(flags)) {
+		row_format = "Compressed";
+	} else if (atomic_blobs) {
+		row_format = "Dynamic";
 	} else {
-		if (is_system_tablespace(space)) {
-			row_format = "Compact, Redundant or Dynamic";
-		} else if (FSP_FLAGS_GET_ZIP_SSIZE(flags)) {
-			row_format = "Compressed";
-		} else if (atomic_blobs) {
-			row_format = "Dynamic";
-		} else {
-			row_format = "Compact or Redundant";
-		}
+		row_format = "Compact or Redundant";
 	}
 
 	fields = table_to_fill->field;
