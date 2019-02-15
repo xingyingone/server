@@ -356,17 +356,7 @@ Datafile::read_first_page(bool read_only_mode)
 		}
 	}
 
-	const bool full_crc32 = fil_space_t::full_crc32(m_flags);
-	ulint ssize = full_crc32
-		? FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(m_flags)
-		: FSP_FLAGS_GET_PAGE_SSIZE(m_flags);
-	if (!ssize) ssize = UNIV_PAGE_SSIZE_ORIG;
-
-	const ulint zip_ssize = full_crc32
-		? 0 : FSP_FLAGS_GET_ZIP_SSIZE(m_flags);
-	const size_t logical_size = ((UNIV_ZIP_SIZE_MIN >> 1) << ssize);
-	const size_t physical_size = zip_ssize
-		? (UNIV_ZIP_SIZE_MIN >> 1) << zip_ssize : logical_size;
+	const size_t physical_size = fil_space_t::physical_size(m_flags);
 
 	if (physical_size > page_size) {
 		ib::error() << "File " << m_filepath

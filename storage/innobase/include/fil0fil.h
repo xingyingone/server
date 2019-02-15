@@ -310,7 +310,7 @@ struct fil_space_t {
 	static ulint physical_size(ulint flags) {
 
 		if (full_crc32(flags)) {
-			return srv_page_size;
+			return logical_size(flags);
 		}
 
 		ulint zip_ssize = FSP_FLAGS_GET_ZIP_SSIZE(flags);

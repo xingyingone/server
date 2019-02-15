@@ -501,13 +501,13 @@ decompress:
 		/* For decompression, use crypt_buf. */
 		buf_tmp_reserve_crypt_buf(slot);
 decompress_with_slot:
-		ut_d(fil_page_type_validate(dst_frame));
+		ut_d(fil_page_type_validate(space, dst_frame));
 
 		bpage->write_size = fil_page_decompress(slot->crypt_buf,
 							dst_frame);
 		slot->release();
 
-		ut_ad(!bpage->write_size || fil_page_type_validate(dst_frame));
+		ut_ad(!bpage->write_size || fil_page_type_validate(space, dst_frame));
 		ut_ad(space->pending_io());
 		return bpage->write_size != 0;
 	}
@@ -535,7 +535,7 @@ decrypt_failed:
 		slot = buf_pool_reserve_tmp_slot(buf_pool);
 		buf_tmp_reserve_crypt_buf(slot);
 
-		ut_d(fil_page_type_validate(dst_frame));
+		ut_d(fil_page_type_validate(space, dst_frame));
 
 		/* decrypt using crypt_buf to dst_frame */
 		if (!fil_space_decrypt(space, slot->crypt_buf,
@@ -544,7 +544,7 @@ decrypt_failed:
 			goto decrypt_failed;
 		}
 
-		ut_d(fil_page_type_validate(dst_frame));
+		ut_d(fil_page_type_validate(space, dst_frame));
 
 		if (fil_page_is_compressed_encrypted(dst_frame)) {
 			goto decompress_with_slot;
@@ -896,6 +896,10 @@ bool buf_page_is_checksum_valid_full_crc32(
 	return checksum_field == full_crc32;
 }
 
+/** Checks whether the lsn present in the page is lesser than the
+peek current lsn.
+@param[in]	check_lsn	lsn to check
+@param[in]	read_buf	page. */
 static void buf_page_check_lsn(bool check_lsn, const byte* read_buf)
 {
 #ifndef UNIV_INNOCHECKSUM
@@ -967,7 +971,7 @@ nonzero:
 		}
 
 		buf_page_check_lsn(check_lsn, read_buf);
-		return true;
+		return false;
 	}
 
 	size_t		checksum_field1 = 0;
@@ -7347,7 +7351,7 @@ buf_page_encrypt(
 	ut_ad(space->id == bpage->id.space());
 	bpage->real_size = srv_page_size;
 
-	fil_page_type_validate(src_frame);
+	ut_d(fil_page_type_validate(space, src_frame));
 
 	switch (bpage->id.page_no()) {
 	case 0:
@@ -7406,7 +7410,7 @@ not_compressed:
 		bpage->real_size = srv_page_size;
 		slot->out_buf = dst_frame = tmp;
 
-		ut_d(fil_page_type_validate(tmp));
+		ut_d(fil_page_type_validate(space, tmp));
 	} else {
 		/* First we compress the page content */
 		buf_tmp_reserve_compression_buf(slot);
@@ -7429,7 +7433,7 @@ not_compressed:
 
 		/* Workaround for MDEV-15527. */
 		memset(tmp + out_len, 0 , srv_page_size - out_len);
-		ut_d(fil_page_type_validate(tmp));
+		ut_d(fil_page_type_validate(space, tmp));
 
 		if (encrypted) {
 			/* And then we encrypt the page content */
@@ -7443,7 +7447,7 @@ not_compressed:
 		slot->out_buf = dst_frame = tmp;
 	}
 
-	ut_d(fil_page_type_validate(dst_frame));
+	ut_d(fil_page_type_validate(space, dst_frame));
 
 	// return dst_frame which will be written
 	return dst_frame;
