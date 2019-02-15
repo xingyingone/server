@@ -2393,7 +2393,8 @@ static int wait_new_events(binlog_send_info *info,         /* in */
                         &stage_master_has_sent_all_binlog_to_slave,
                         &old_stage);
 
-  while (!should_stop(info))
+  while (!should_stop(info) &&
+         mysql_bin_log.slaves_wait_shutdown != MYSQL_BIN_LOG::SHDN_DOIT)
   {
     *end_pos_ptr= mysql_bin_log.get_binlog_end_pos(binlog_end_pos_filename);
     if (strcmp(linfo->log_file_name, binlog_end_pos_filename) != 0)
@@ -2517,8 +2518,9 @@ static my_off_t get_binlog_end_pos(binlog_send_info *info,
       /**
        * check if we should wait for more data
        */
-      if ((info->flags & BINLOG_DUMP_NON_BLOCK) ||
-          (info->thd->variables.server_id == 0))
+      if ((info->flags & BINLOG_DUMP_NON_BLOCK) /* todo: what's use case? */||
+          (info->thd->variables.server_id == 0) ||
+          mysql_bin_log.slaves_wait_shutdown == MYSQL_BIN_LOG::SHDN_DOIT)
       {
         info->should_stop= true;
         return 0;
@@ -2732,6 +2734,19 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
   bzero((char*) &log,sizeof(log));
 
+  DBUG_EXECUTE_IF("simulate_delay_at_shutdown",
+                 {
+                   const char act[]=
+                     "now "
+                     "WAIT_FOR greetings_from_kill_mysql";
+                   DBUG_ASSERT(!debug_sync_set_action(thd,
+                                                      STRING_WITH_LEN(act)));
+                 };);
+
+  mysql_bin_log.lock_binlog_end_pos();
+  mysql_bin_log.dump_thread_count++;
+  mysql_bin_log.unlock_binlog_end_pos();
+
   if (init_binlog_sender(info, &linfo, log_ident, &pos))
     goto err;
 
@@ -2860,6 +2875,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   }
 
 err:
+
+  mysql_bin_log.lock_binlog_end_pos();
+  if (mysql_bin_log.slaves_wait_shutdown == MYSQL_BIN_LOG::SHDN_DOIT)
+  {
+    mysql_bin_log.signal_bin_log_update();
+  }
+  mysql_bin_log.dump_thread_count--;
+  mysql_bin_log.unlock_binlog_end_pos();
+
   THD_STAGE_INFO(thd, stage_waiting_to_finalize_termination);
   if (has_transmit_started)
   {

@@ -14698,6 +14698,15 @@ kill_expr:
 
 shutdown:
         SHUTDOWN { Lex->sql_command= SQLCOM_SHUTDOWN; }
+        shutdown_option {}
+        ;
+
+shutdown_option:
+        /*  Empty */    { Lex->is_slaves_wait_shutdown= false; }
+        | WAIT_SYM FOR_SYM SLAVES
+        {
+          Lex->is_slaves_wait_shutdown= true;
+        }
         ;
 
 /* change database */

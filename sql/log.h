@@ -653,6 +653,18 @@ public:
   char last_commit_pos_file[FN_REFLEN];
   my_off_t last_commit_pos_offset;
   ulong current_binlog_id;
+  /*
+    to facilitate in running slow shutdown the var is changed from default
+    at shutdown, and is checked by dump threads.
+  */
+  enum enum_shutdown_phase
+  {
+    SHDN_NONE= 0,
+    SHDN_PREPARE,
+    SHDN_DOIT
+  } slaves_wait_shutdown;
+
+  Atomic_counter<uint32_t> dump_thread_count;
 
   MYSQL_BIN_LOG(uint *sync_period);
   /*
@@ -913,7 +925,7 @@ public:
   mysql_mutex_t* get_binlog_end_pos_lock() { return &LOCK_binlog_end_pos; }
 
   int wait_for_update_binlog_end_pos(THD* thd, struct timespec * timeout);
-
+  int wait_for_update_binlog_no_thd(struct timespec * timeout);
   /*
     Binlog position of end of the binlog.
     Access to this is protected by LOCK_binlog_end_pos

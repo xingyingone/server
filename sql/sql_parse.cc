@@ -2145,6 +2145,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     */
     enum mysql_enum_shutdown_level level;
     level= (enum mysql_enum_shutdown_level) (uchar) packet[0];
+    thd->lex->is_slaves_wait_shutdown= false;  // "deferred" cleanup
     if (level == SHUTDOWN_DEFAULT)
       level= SHUTDOWN_WAIT_ALL_BUFFERS; // soon default will be configurable
     else if (level != SHUTDOWN_WAIT_ALL_BUFFERS)

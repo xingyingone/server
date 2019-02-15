@@ -1526,12 +1526,20 @@ static void end_ssl();
 ** Code to end mysqld
 ****************************************************************************/
 
-static my_bool kill_all_threads(THD *thd, void *)
+/**
+  @param thd  pointer to THD of being killed thread
+  @param dsc  an optional thread descriptor to leave out those threads
+              whose server command is as of specified by the parameter.
+  @returns 0 as success, otherwise 1.
+*/
+static my_bool kill_all_threads(THD *thd, enum_server_command *dsc)
 {
   DBUG_PRINT("quit", ("Informing thread %ld that it's time to die",
                       (ulong) thd->thread_id));
   /* We skip slave threads on this first loop through. */
   if (thd->slave_thread)
+    return 0;
+  if (dsc && *dsc == thd->get_command())
     return 0;
 
   if (DBUG_EVALUATE_IF("only_kill_system_threads", !thd->system_thread, 0))
@@ -1573,9 +1581,19 @@ static my_bool kill_all_threads(THD *thd, void *)
 }
 
 
-static my_bool kill_all_threads_once_again(THD *thd, void *)
+/**
+  @param thd  pointer to THD of being killed thread
+  @param dsc  an optional thread descriptor to leave out those threads
+              whose server command is as of specified by the parameter.
+  @returns 0 as success, otherwise 1.
+*/
+static my_bool kill_all_threads_once_again(THD *thd, enum_server_command *dsc)
 {
 #ifndef __bsdi__				// Bug in BSDI kernel
+  /* e.g "slow" shutdown leaves out dump threads */
+  if (dsc && *dsc == thd->get_command())
+    return 0;
+
   if (thd->vio_ok())
   {
     if (global_system_variables.log_warnings)
@@ -1705,7 +1723,44 @@ void kill_mysql(THD *thd)
   {
     my_free(user);
   }
-  break_connect_loop();
+  if (DBUG_EVALUATE_IF("mysql_admin_slow_shutdown", 1,
+                       thd->lex->is_slaves_wait_shutdown))
+  {
+    mysql_bin_log.slaves_wait_shutdown= MYSQL_BIN_LOG::SHDN_PREPARE;
+    debug_sync_set_action(thd,
+                          STRING_WITH_LEN("now SIGNAL wait_for_done_waiting"));
+    DBUG_EXECUTE_IF("simulate_delay_at_shutdown",
+                    {
+                      DBUG_ASSERT(mysql_bin_log.dump_thread_count == 2);
+                      const char act[]=
+                        "now "
+                        "SIGNAL greetings_from_kill_mysql";
+                      DBUG_ASSERT(!debug_sync_set_action(thd,
+                                                         STRING_WITH_LEN(act)));
+                      while (mysql_bin_log.dump_thread_count == 2)
+                        my_sleep(100000);
+                    };);
+    break_connect_loop();
+  }
+}
+
+
+void end_dump_threads()
+{
+  mysql_bin_log.lock_binlog_end_pos();
+  // set a mark for dump threads to prepare their exiting
+  mysql_bin_log.slaves_wait_shutdown= MYSQL_BIN_LOG::SHDN_DOIT;
+  // wakeup eager ones
+  mysql_bin_log.signal_bin_log_update();
+  mysql_bin_log.unlock_binlog_end_pos();
+  // wait for the rest slow ones
+  while (mysql_bin_log.dump_thread_count)
+  {
+    mysql_bin_log.lock_binlog_end_pos();
+    if (mysql_bin_log.dump_thread_count)
+      mysql_bin_log.wait_for_update_binlog_no_thd(NULL);
+    mysql_bin_log.unlock_binlog_end_pos();
+  }
 }
 
 
@@ -1748,7 +1803,13 @@ static void close_connections(void)
     This will give the threads some time to gracefully abort their
     statements and inform their clients that the server is about to die.
   */
-  server_threads.iterate(kill_all_threads);
+  Atomic_counter<uint32_t> &dump_thread_count= mysql_bin_log.dump_thread_count;
+  enum_server_command binlog_dump_desc= COM_BINLOG_DUMP;
+  bool is_slaves_wait_shutdown=
+    mysql_bin_log.slaves_wait_shutdown == MYSQL_BIN_LOG::SHDN_PREPARE;
+  server_threads.iterate<enum_server_command>(kill_all_threads,
+                                              !is_slaves_wait_shutdown ? NULL :
+                                              &binlog_dump_desc);
 
   Events::deinit();
   slave_prepare_for_shutdown();
@@ -1771,7 +1832,8 @@ static void close_connections(void)
   */
   DBUG_PRINT("info", ("thread_count: %u", uint32_t(thread_count)));
 
-  for (int i= 0; thread_count && i < 1000; i++)
+  for (int i= 0; (thread_count - is_slaves_wait_shutdown *  dump_thread_count)
+                  && i < 1000; i++)
     my_sleep(20000);
 
   /*
@@ -1779,8 +1841,11 @@ static void close_connections(void)
     This will ensure that threads that are waiting for a command from the
     client on a blocking read call are aborted.
   */
-  server_threads.iterate(kill_all_threads_once_again);
-
+  server_threads.iterate<enum_server_command>(kill_all_threads_once_again,
+                                              !is_slaves_wait_shutdown ? NULL :
+                                              &binlog_dump_desc);
+  if (is_slaves_wait_shutdown)
+    end_dump_threads(); // now when replication events can't be coming
   end_slave();
 #ifdef WITH_WSREP
   if (wsrep_inited == 1)

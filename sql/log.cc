@@ -3222,7 +3222,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
    checksum_alg_reset(BINLOG_CHECKSUM_ALG_UNDEF),
    relay_log_checksum_alg(BINLOG_CHECKSUM_ALG_UNDEF),
    description_event_for_exec(0), description_event_for_queue(0),
-   current_binlog_id(0)
+   current_binlog_id(0), slaves_wait_shutdown(SHDN_NONE), dump_thread_count(0)
 {
   /*
     We don't want to initialize locks here as such initialization depends on
@@ -8390,17 +8390,20 @@ int MYSQL_BIN_LOG::wait_for_update_binlog_end_pos(THD* thd,
   DBUG_ENTER("wait_for_update_binlog_end_pos");
 
   thd_wait_begin(thd, THD_WAIT_BINLOG);
-  mysql_mutex_assert_owner(get_binlog_end_pos_lock());
-  if (!timeout)
-    mysql_cond_wait(&COND_bin_log_updated, get_binlog_end_pos_lock());
-  else
-    ret= mysql_cond_timedwait(&COND_bin_log_updated, get_binlog_end_pos_lock(),
-                              timeout);
+  ret= wait_for_update_binlog_no_thd(timeout);
   thd_wait_end(thd);
   DBUG_RETURN(ret);
 }
 
+int MYSQL_BIN_LOG::wait_for_update_binlog_no_thd(struct timespec *timeout)
+{
+  mysql_mutex_assert_owner(get_binlog_end_pos_lock());
 
+    return !timeout ?
+      mysql_cond_wait     (&COND_bin_log_updated, get_binlog_end_pos_lock()) :
+      mysql_cond_timedwait(&COND_bin_log_updated, get_binlog_end_pos_lock(),
+                           timeout);
+}
 /**
   Close the log file.
 
