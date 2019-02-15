@@ -1,7 +1,8 @@
-set global innodb_checksum_algorithm=full_crc32;
 CREATE TABLE t1 (pk INT PRIMARY KEY AUTO_INCREMENT,
 c VARCHAR(256), coordinate POINT NOT NULL, SPATIAL index(coordinate)) ENGINE=INNODB
 ENCRYPTED=YES;
+INSERT INTO t1(c, coordinate) values('mysql', ST_GeomFromText('POINT(903994614 180726515)'));
+INSERT INTO t1(c, coordinate) values('mariadb', ST_GeomFromText('POINT(903994614 180726515)'));
 DROP TABLE t1;
 CREATE TABLE t1 (pk INT PRIMARY KEY AUTO_INCREMENT,
 c VARCHAR(256), coordinate POINT NOT NULL, SPATIAL index(coordinate)) ENGINE=INNODB;

@@ -5858,6 +5858,26 @@ buf_mark_space_corrupt(buf_page_t* bpage, const fil_space_t* space)
 	buf_pool_mutex_exit(buf_pool);
 }
 
+/** Check if the encrypted page is corrupted for the full crc32 format.
+@param[in]	space_id	page belongs to space id
+@param[in]	dst_frame	page
+@return true if page is corrupted or false if it isn't */
+static bool buf_encrypted_full_crc32_page_is_corrupted(
+	uint		space_id,
+	const byte*	dst_frame)
+{
+	if (memcmp(dst_frame + FIL_PAGE_LSN + 4,
+	           dst_frame + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN, 4)) {
+		return true;
+	}
+
+	if (space_id != mach_read_from_4(dst_frame + FIL_PAGE_SPACE_ID)) {
+		return true;
+	}
+
+	return false;
+}
+
 /** Check if page is maybe compressed, encrypted or both when we encounter
 corrupted page. Note that we can't be 100% sure if page is corrupted
 or decrypt/decompress just failed.
@@ -5896,12 +5916,8 @@ static dberr_t buf_page_check_corrupt(buf_page_t* bpage, fil_space_t* space)
 		/* If traditional checksums match, we assume that page is
 		not anymore encrypted. */
 		if (space->full_crc32() && key_version) {
-			if (memcmp(
-				dst_frame + FIL_PAGE_LSN + 4,
-				dst_frame + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN,
-				4)) {
-				corrupted = true;
-			}
+			corrupted = buf_encrypted_full_crc32_page_is_corrupted(
+					space->id, dst_frame);
 		} else {
 			corrupted = buf_page_is_corrupted(
 				true, dst_frame, space->flags);
