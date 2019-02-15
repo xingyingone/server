@@ -2466,7 +2466,8 @@ static void store_key_options(THD *thd, String *packet, TABLE *table,
     if (key_info->algorithm == HA_KEY_ALG_BTREE)
       packet->append(STRING_WITH_LEN(" USING BTREE"));
 
-    if (key_info->algorithm == HA_KEY_ALG_HASH)
+    if (key_info->algorithm == HA_KEY_ALG_HASH ||
+            key_info->algorithm == HA_KEY_ALG_LONG_HASH)
       packet->append(STRING_WITH_LEN(" USING HASH"));
 
     /* send USING only in non-default case: non-spatial rtree */

@@ -220,10 +220,10 @@ t1	CREATE TABLE `t1` (
   `f` int(11) DEFAULT NULL,
   `g` text DEFAULT NULL,
   PRIMARY KEY (`a`),
-  UNIQUE KEY `b` (`b`,`c`),
+  UNIQUE KEY `b` (`b`,`c`) USING HASH,
   UNIQUE KEY `b_2` (`b`,`f`),
-  UNIQUE KEY `e` (`e`,`g`),
-  UNIQUE KEY `a` (`a`,`b`,`c`,`d`,`e`,`f`,`g`)
+  UNIQUE KEY `e` (`e`,`g`) USING HASH,
+  UNIQUE KEY `a` (`a`,`b`,`c`,`d`,`e`,`f`,`g`) USING HASH
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1
 show keys from t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
