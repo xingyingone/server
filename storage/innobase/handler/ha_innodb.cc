@@ -18725,7 +18725,11 @@ innobase_wsrep_get_checkpoint(
 static MYSQL_SYSVAR_ENUM(checksum_algorithm, srv_checksum_algorithm,
   PLUGIN_VAR_RQCMDARG,
   "The algorithm InnoDB uses for page checksumming. Possible values are"
-  " CRC32 (hardware accelerated if the CPU supports it)"
+  " FULL_CRC32"
+    " for new files, always use CRC-32C; for old, see CRC32 below;"
+  " STRICT_FULL_CRC32"
+    " for new files, always use CRC-32C; for old, see STRICT_CRC32 below;"
+  " CRC32"
     " write crc32, allow any of the other checksums to match when reading;"
   " STRICT_CRC32"
     " write crc32, do not allow other algorithms to match when reading;"
@@ -18742,7 +18746,8 @@ static MYSQL_SYSVAR_ENUM(checksum_algorithm, srv_checksum_algorithm,
     " write a constant magic number, do not allow values other than that"
     " magic number when reading;"
   " Files updated when this option is set to crc32 or strict_crc32 will"
-  " not be readable by MariaDB versions older than 10.0.4",
+  " not be readable by MariaDB versions older than 10.0.4;"
+  " new files created with full_crc32 are readable by MariaDB 10.4.3+",
   NULL, NULL, SRV_CHECKSUM_ALGORITHM_FULL_CRC32,
   &innodb_checksum_algorithm_typelib);
 
