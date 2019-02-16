@@ -1878,7 +1878,13 @@ fil_write_flushed_lsn(
 	err = fil_read(page_id, 0, 0, srv_page_size, buf);
 
 	if (err == DB_SUCCESS) {
-		mach_write_to_8(buf + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION, lsn);
+		ulint fsp_flags = mach_read_from_4(
+			buf + FSP_HEADER_OFFSET + FSP_SPACE_FLAGS);
+
+		if (fil_space_t::full_crc32(fsp_flags)) {
+			buf_flush_init_for_writing(NULL, buf, NULL, lsn, true);
+		}
+
 		err = fil_write(page_id, 0, 0, srv_page_size, buf);
 		fil_flush_file_spaces(FIL_TYPE_TABLESPACE);
 	}

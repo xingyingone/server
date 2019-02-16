@@ -3849,7 +3849,17 @@ static int innodb_init_params()
 	}
 
 	srv_sys_space.set_space_id(TRX_SYS_SPACE);
-	srv_sys_space.set_flags(FSP_FLAGS_PAGE_SSIZE());
+
+	switch (srv_checksum_algorithm) {
+	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
+	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
+		srv_sys_space.set_flags(FSP_FLAGS_FCHKSUM_MASK_MARKER
+					| FSP_FLAGS_FCHKSUM_PAGE_SSIZE());
+		break;
+	default:
+		srv_sys_space.set_flags(FSP_FLAGS_PAGE_SSIZE());
+	}
+
 	srv_sys_space.set_name("innodb_system");
 	srv_sys_space.set_path(srv_data_home);
 
@@ -3862,7 +3872,16 @@ static int innodb_init_params()
 
 	srv_tmp_space.set_name("innodb_temporary");
 	srv_tmp_space.set_path(srv_data_home);
-	srv_tmp_space.set_flags(FSP_FLAGS_PAGE_SSIZE());
+
+	switch (srv_checksum_algorithm) {
+	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
+	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
+		srv_tmp_space.set_flags(FSP_FLAGS_FCHKSUM_MASK_MARKER
+					| FSP_FLAGS_FCHKSUM_PAGE_SSIZE());
+		break;
+	default:
+		srv_tmp_space.set_flags(FSP_FLAGS_PAGE_SSIZE());
+	}
 
 	if (!srv_tmp_space.parse_params(innobase_temp_data_file_path, false)) {
 		ib::error() << "Unable to parse innodb_temp_data_file_path="

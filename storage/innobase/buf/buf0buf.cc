@@ -954,14 +954,6 @@ buf_page_is_corrupted(
 		const byte* end = read_buf + srv_page_size;
 		uint crc32 = mach_read_from_4(end - FIL_PAGE_FCHKSUM_CRC32);
 
-		DBUG_EXECUTE_IF(
-			"page_intermittent_checksum_mismatch", {
-			static int page_counter;
-			if (page_counter++ == 2) {
-				crc32++;
-			}
-			});
-
 		if (!crc32) {
 			const byte* b = read_buf;
 			while (b != end) if (*b++) goto nonzero;
@@ -976,7 +968,6 @@ buf_page_is_corrupted(
 				crc32++;
 			}
 		});
-		
 nonzero:
 		if (!buf_page_is_checksum_valid_full_crc32(read_buf, crc32)) {
 			return true;
