@@ -1038,7 +1038,10 @@ nonzero:
 
 	/* Check whether the checksum fields have correct values */
 
-	if (srv_checksum_algorithm == SRV_CHECKSUM_ALGORITHM_NONE) {
+	const srv_checksum_algorithm_t curr_algo =
+		static_cast<srv_checksum_algorithm_t>(srv_checksum_algorithm);
+
+	if (curr_algo == SRV_CHECKSUM_ALGORITHM_NONE) {
 		return(false);
 	}
 
@@ -1076,10 +1079,8 @@ nonzero:
 		return(false);
 	}
 
-	const srv_checksum_algorithm_t	curr_algo =
-		static_cast<srv_checksum_algorithm_t>(srv_checksum_algorithm);
-
 	switch (curr_algo) {
+	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
 		return !buf_page_is_checksum_valid_crc32(
 			read_buf, checksum_field1, checksum_field2);
@@ -1089,7 +1090,6 @@ nonzero:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_NONE:
 		return !buf_page_is_checksum_valid_none(
 			read_buf, checksum_field1, checksum_field2);
-	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_INNODB:
@@ -1115,12 +1115,8 @@ nonzero:
 			return false;
 		}
 
-		crc32_chksum =
-			(srv_checksum_algorithm == SRV_CHECKSUM_ALGORITHM_CRC32
-			 || srv_checksum_algorithm
-			    == SRV_CHECKSUM_ALGORITHM_FULL_CRC32
-			 || srv_checksum_algorithm
-			    == SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32);
+		crc32_chksum = curr_algo == SRV_CHECKSUM_ALGORITHM_CRC32
+			|| curr_algo == SRV_CHECKSUM_ALGORITHM_FULL_CRC32;
 
 		/* Very old versions of InnoDB only stored 8 byte lsn to the
 		start and the end of the page. */
@@ -1142,7 +1138,7 @@ nonzero:
 					return true;
 				}
 			} else {
-				ut_ad(srv_checksum_algorithm
+				ut_ad(curr_algo
 				      == SRV_CHECKSUM_ALGORITHM_INNODB);
 
 				if (checksum_field2
@@ -1172,8 +1168,7 @@ nonzero:
 				return true;
 			}
 		} else {
-			ut_ad(srv_checksum_algorithm
-			      == SRV_CHECKSUM_ALGORITHM_INNODB);
+			ut_ad(curr_algo == SRV_CHECKSUM_ALGORITHM_INNODB);
 
 			if (checksum_field1
 			    != buf_calc_page_new_checksum(read_buf)) {
