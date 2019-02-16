@@ -64,6 +64,7 @@
 #include "sys_vars_shared.h"
 #include "sp_head.h"
 #include "sp_rcontext.h"
+#include "rowid_filter.h"
 #include "select_handler.h"
 #include "my_json_writer.h"
 #include "opt_trace.h"
@@ -103,6 +104,9 @@ static int sort_keyuse(KEYUSE *a,KEYUSE *b);
 static bool are_tables_local(JOIN_TAB *jtab, table_map used_tables);
 static bool create_ref_for_key(JOIN *join, JOIN_TAB *j, KEYUSE *org_keyuse,
 			       bool allow_full_scan, table_map used_tables);
+static ha_rows get_quick_record_count(THD *thd, SQL_SELECT *select,
+				      TABLE *table,
+				      const key_map *keys,ha_rows limit);
 void best_access_path(JOIN *join, JOIN_TAB *s, 
                              table_map remaining_tables, uint idx, 
                              bool disable_jbuf, double record_count,
@@ -1519,6 +1523,116 @@ int JOIN::optimize()
 }
 
 
+/**
+  @brief
+    Create range filters objects needed in execution for all join tables
+
+  @details
+    For each join table from the chosen execution plan such that a range filter
+    is used when joining this table the function creates a Rowid_filter object
+    for this range filter. In order to do this the function first constructs
+    a quick select to scan the range for this  range filter. Then it creates
+    a container for the range filter and finally constructs a Range_rowid_filter
+    object a pointer to which is set in the field JOIN_TAB::rowid_filter of
+    the joined table.
+
+  @retval false  always
+*/
+
+bool JOIN::make_range_rowid_filters()
+{
+  DBUG_ENTER("make_range_rowid_filters");
+
+  JOIN_TAB *tab;
+
+  for (tab= first_linear_tab(this, WITH_BUSH_ROOTS, WITHOUT_CONST_TABLES);
+       tab;
+       tab= next_linear_tab(this, tab, WITH_BUSH_ROOTS))
+  {
+    if (!tab->range_rowid_filter_info)
+      continue;
+    int err;
+    SQL_SELECT *sel= NULL;
+    Rowid_filter_container *filter_container= NULL;
+    Item **sargable_cond= get_sargable_cond(this, tab->table);
+    sel= make_select(tab->table, const_table_map, const_table_map,
+                     *sargable_cond, (SORT_INFO*) 0, 1, &err);
+    if (!sel)
+      continue;
+
+    key_map filter_map;
+    filter_map.clear_all();
+    filter_map.set_bit(tab->range_rowid_filter_info->key_no);
+    filter_map.merge(tab->table->with_impossible_ranges);
+    bool force_index_save= tab->table->force_index;
+    tab->table->force_index= true;
+    (void) sel->test_quick_select(thd, filter_map, (table_map) 0,
+                                  (ha_rows) HA_POS_ERROR,
+				  true, false, true);
+    tab->table->force_index= force_index_save;
+    if (thd->is_error())
+      goto no_filter;
+    DBUG_ASSERT(sel->quick);
+    filter_container=
+      tab->range_rowid_filter_info->create_container();
+    if (filter_container)
+    {
+      tab->rowid_filter=
+        new (thd->mem_root) Range_rowid_filter(tab->table,
+                                               tab->range_rowid_filter_info,
+                                               filter_container, sel);
+      if (tab->rowid_filter)
+        continue;
+    }
+  no_filter:
+    if (sel->quick)
+      delete sel->quick;
+    delete sel;
+  }
+
+  DBUG_RETURN(0);
+}
+
+
+/**
+  @brief
+    Allocate memory the rowid containers of the used the range filters
+
+  @details
+    For each join table from the chosen execution plan such that a range filter
+    is used when joining this table the function allocate memory for the
+    rowid container employed by the filter. On success it lets the table engine
+    know that what rowid filter will be used when accessing the table rows.
+
+  @retval false  always
+*/
+
+bool
+JOIN::init_range_rowid_filters()
+{
+  DBUG_ENTER("init_range_rowid_filters");
+
+  JOIN_TAB *tab;
+
+  for (tab= first_linear_tab(this, WITH_BUSH_ROOTS, WITHOUT_CONST_TABLES);
+       tab;
+       tab= next_linear_tab(this, tab, WITH_BUSH_ROOTS))
+  {
+    if (!tab->rowid_filter)
+      continue;
+    if (tab->rowid_filter->get_container()->alloc())
+    {
+      delete tab->rowid_filter;
+      tab->rowid_filter= 0;
+      continue;
+    }
+    tab->table->file->rowid_filter_push(tab->rowid_filter);
+    tab->is_rowid_filter_built= false;
+  }
+  DBUG_RETURN(0);
+}
+
+
 int JOIN::init_join_caches()
 {
   JOIN_TAB *tab;
@@ -2042,6 +2156,9 @@ int JOIN::optimize_stage2()
   if (get_best_combination())
     DBUG_RETURN(1);
   
+  if (make_range_rowid_filters())
+    DBUG_RETURN(1);
+
   if (select_lex->handle_derived(thd->lex, DT_OPTIMIZE))
     DBUG_RETURN(1);
 
@@ -2704,6 +2821,9 @@ int JOIN::optimize_stage2()
     DBUG_RETURN(1);
 
   if (init_join_caches())
+    DBUG_RETURN(1);
+
+  if (init_range_rowid_filters())
     DBUG_RETURN(1);
 
   error= 0;
@@ -5149,7 +5269,7 @@ make_join_statistics(JOIN *join, List<TABLE_LIST> &tables_list,
           if (!select)
             goto error;
           records= get_quick_record_count(join->thd, select, s->table,
-  		                          	        &s->const_keys, join->row_limit);
+                                          &s->const_keys, join->row_limit);
 
           /*
             Range analyzer might have modified the condition. Put it the new
@@ -5161,6 +5281,9 @@ make_join_statistics(JOIN *join, List<TABLE_LIST> &tables_list,
           s->needed_reg=select->needed_reg;
           select->quick=0;
           impossible_range= records == 0 && s->table->reginfo.impossible_range;
+          if (join->thd->lex->sql_command == SQLCOM_SELECT &&
+              optimizer_flag(join->thd, OPTIMIZER_SWITCH_USE_ROWID_FILTER))
+          s->table->init_cost_info_for_usable_range_rowid_filters(join->thd);
         }
         if (!impossible_range)
         {
@@ -6970,12 +7093,14 @@ best_access_path(JOIN      *join,
   double best_time=         DBL_MAX;
   double records=           DBL_MAX;
   table_map best_ref_depends_map= 0;
+  Range_rowid_filter_cost_info *best_filter= 0;
   double tmp;
   ha_rows rec;
   bool best_uses_jbuf= FALSE;
   MY_BITMAP *eq_join_set= &s->table->eq_join_set;
   KEYUSE *hj_start_key= 0;
   SplM_plan_info *spl_plan= 0;
+  Range_rowid_filter_cost_info *filter= 0;
   const char* cause= NULL;
 
   disable_jbuf= disable_jbuf || idx == join->const_tables;  
@@ -7011,6 +7136,7 @@ best_access_path(JOIN      *join,
       key_part_map found_part= 0;
       table_map found_ref= 0;
       uint key= keyuse->key;
+      filter= 0;
       bool ft_key=  (keyuse->keypart == FT_KEYPART);
       /* Bitmap of keyparts where the ref access is over 'keypart=const': */
       key_part_map const_part= 0;
@@ -7419,6 +7545,20 @@ best_access_path(JOIN      *join,
         loose_scan_opt.check_ref_access_part2(key, start_key, records, tmp);
       } /* not ft_key */
 
+      if (records < DBL_MAX)
+      {
+        double rows= record_count * records;
+        double access_cost_factor= MY_MIN(tmp / rows, 1.0);
+        filter=
+          table->best_range_rowid_filter_for_partial_join(start_key->key, rows,
+                                                          access_cost_factor);
+        if (filter)
+	{
+          filter->get_cmp_gain(rows);
+          tmp-= filter->get_adjusted_gain(rows) - filter->get_cmp_gain(rows);
+          DBUG_ASSERT(tmp >= 0);
+        }
+      }
       trace_access_idx.add("rows", records).add("cost", tmp);
 
       if (tmp + 0.0001 < best_time - records/(double) TIME_FOR_COMPARE)
@@ -7430,6 +7570,7 @@ best_access_path(JOIN      *join,
         best_key= start_key;
         best_max_key_part= max_key_part;
         best_ref_depends_map= found_ref;
+        best_filter= filter;
       }
       else
       {
@@ -7478,6 +7619,7 @@ best_access_path(JOIN      *join,
     best_key= hj_start_key;
     best_ref_depends_map= 0;
     best_uses_jbuf= TRUE;
+    best_filter= 0;
     trace_access_hash.add("type", "hash");
     trace_access_hash.add("index", "hj-key");
     trace_access_hash.add("cost", rnd_records);
@@ -7536,6 +7678,7 @@ best_access_path(JOIN      *join,
       Here we estimate its cost.
     */
 
+    filter= 0;
     if (s->quick)
     {
       trace_access_scan.add("access_type", "range");
@@ -7554,6 +7697,21 @@ best_access_path(JOIN      *join,
       tmp= record_count *
         (s->quick->read_time +
          (s->found_records - rnd_records)/(double) TIME_FOR_COMPARE);
+
+      if ( s->quick->get_type() == QUICK_SELECT_I::QS_TYPE_RANGE)
+      {
+        double rows= record_count * s->found_records;
+        double access_cost_factor= MY_MIN(tmp / rows, 1.0);
+        uint key_no= s->quick->index;
+        filter=
+        s->table->best_range_rowid_filter_for_partial_join(key_no, rows,
+                                                           access_cost_factor);
+        if (filter)
+        {
+          tmp-= filter->get_adjusted_gain(rows);
+          DBUG_ASSERT(tmp >= 0);
+	}
+      }
 
       loose_scan_opt.check_range_access(join, idx, s->quick);
     }
@@ -7599,17 +7757,26 @@ best_access_path(JOIN      *join,
       tmp+= s->table->get_materialization_cost();
     else
       tmp+= s->startup_cost;
+
     /*
       We estimate the cost of evaluating WHERE clause for found records
       as record_count * rnd_records / TIME_FOR_COMPARE. This cost plus
       tmp give us total cost of using TABLE SCAN
     */
+
+    double best_filter_cmp_gain= 0;
+    if (best_filter)
+    {
+      best_filter_cmp_gain= best_filter->get_cmp_gain(record_count * records);
+    }
     trace_access_scan.add("resulting_rows", rnd_records);
     trace_access_scan.add("cost", tmp);
+
     if (best == DBL_MAX ||
         (tmp  + record_count/(double) TIME_FOR_COMPARE*rnd_records <
          (best_key->is_for_hash_join() ? best_time :
-          best + record_count/(double) TIME_FOR_COMPARE*records)))
+          best + record_count/(double) TIME_FOR_COMPARE*records -
+          best_filter_cmp_gain)))
     {
       /*
         If the table has a range (s->quick is set) make_join_select()
@@ -7618,6 +7785,9 @@ best_access_path(JOIN      *join,
       best= tmp;
       records= rnd_records;
       best_key= 0;
+      best_filter= 0;
+      if (s->quick && s->quick->get_type() == QUICK_SELECT_I::QS_TYPE_RANGE)
+        best_filter= filter;
       /* range/index_merge/ALL/index access method are "independent", so: */
       best_ref_depends_map= 0;
       best_uses_jbuf= MY_TEST(!disable_jbuf && !((s->table->map &
@@ -7642,6 +7812,7 @@ best_access_path(JOIN      *join,
   pos->loosescan_picker.loosescan_key= MAX_KEY;
   pos->use_join_buffer= best_uses_jbuf;
   pos->spl_plan= spl_plan;
+  pos->range_rowid_filter_info= best_filter;
    
   loose_scan_opt.save_to_position(s, loose_scan_pos);
 
@@ -8132,6 +8303,7 @@ optimize_straight_join(JOIN *join, table_map join_tables)
 
   for (JOIN_TAB **pos= join->best_ref + idx ; (s= *pos) ; pos++)
   {
+    POSITION *position= join->positions + idx;
     Json_writer_object trace_one_table(thd);
     if (unlikely(thd->trace_started()))
     {
@@ -8140,12 +8312,19 @@ optimize_straight_join(JOIN *join, table_map join_tables)
     }
     /* Find the best access method from 's' to the current partial plan */
     best_access_path(join, s, join_tables, idx, disable_jbuf, record_count,
-                     join->positions + idx, &loose_scan_pos);
+                     position, &loose_scan_pos);
 
     /* compute the cost of the new plan extended with 's' */
-    record_count*= join->positions[idx].records_read;
-    read_time+= join->positions[idx].read_time +
-                record_count / (double) TIME_FOR_COMPARE;
+    record_count*= position->records_read;
+    double filter_cmp_gain= 0;
+    if (position->range_rowid_filter_info)
+    {
+      filter_cmp_gain=
+        position->range_rowid_filter_info->get_cmp_gain(record_count);
+    }
+    read_time+= position->read_time +
+                record_count / (double) TIME_FOR_COMPARE -
+                filter_cmp_gain;
     advance_sj_state(join, join_tables, idx, &record_count, &read_time,
                      &loose_scan_pos);
 
@@ -8154,7 +8333,7 @@ optimize_straight_join(JOIN *join, table_map join_tables)
     if (use_cond_selectivity > 1)
       pushdown_cond_selectivity= table_cond_selectivity(join, idx, s,
                                                         join_tables);
-    join->positions[idx].cond_selectivity= pushdown_cond_selectivity;
+    position->cond_selectivity= pushdown_cond_selectivity;
     ++idx;
   }
 
@@ -9072,8 +9251,15 @@ best_extension_by_limited_search(JOIN      *join,
         current_record_count= record_count * position->records_read;
       else
         current_record_count= DBL_MAX;
+      double filter_cmp_gain= 0;
+      if (position->range_rowid_filter_info)
+      {
+        filter_cmp_gain=
+          position->range_rowid_filter_info->get_cmp_gain(current_record_count);
+      }
       current_read_time=read_time + position->read_time +
-                        current_record_count / (double) TIME_FOR_COMPARE;
+                        current_record_count / (double) TIME_FOR_COMPARE -
+	                filter_cmp_gain;
 
       /*
         TODO add filtering estimates here
@@ -9786,6 +9972,7 @@ bool JOIN::inject_cond_into_where(Item *injected_cond)
 
 static Item * const null_ptr= NULL;
 
+
 /*
   Set up join struct according to the picked join order in
   
@@ -9944,6 +10131,8 @@ bool JOIN::get_best_combination()
     if ((j->type == JT_REF || j->type == JT_EQ_REF) &&
         is_hash_join_key_no(j->ref.key))
       hash_join= TRUE; 
+
+    j->range_rowid_filter_info= best_positions[tablenr].range_rowid_filter_info;
 
   loop_end:
     /* 
@@ -11037,6 +11226,11 @@ make_join_select(JOIN *join,SQL_SELECT *select,COND *cond)
 	    sel->quick=tab->quick;		// Use value from get_quick_...
 	    sel->quick_keys.clear_all();
 	    sel->needed_reg.clear_all();
+            if (is_hj && tab->rowid_filter)
+	    {
+              delete tab->rowid_filter;
+              tab->rowid_filter= 0;
+	    }
 	  }
 	  else
 	  {
@@ -12724,6 +12918,37 @@ bool error_if_full_join(JOIN *join)
 }
 
 
+void JOIN_TAB::build_range_rowid_filter_if_needed()
+{
+  if (rowid_filter && !is_rowid_filter_built)
+  {
+    /**
+      The same handler object (table->file) is used to build a filter
+      and to perfom a primary table access (by the main query).
+
+      To estimate the time for filter building tracker should be changed
+      and after building of the filter has been finished it should be
+      switched back to the previos tracker.
+    */
+    Exec_time_tracker *table_tracker= table->file->get_time_tracker();
+    Rowid_filter_tracker *rowid_tracker= rowid_filter->get_tracker();
+    table->file->set_time_tracker(rowid_tracker->get_time_tracker());
+    rowid_tracker->start_tracking();
+    if (!rowid_filter->build())
+    {
+      is_rowid_filter_built= true;
+    }
+    else
+    {
+      delete rowid_filter;
+      rowid_filter= 0;
+    }
+    rowid_tracker->stop_tracking();
+    table->file->set_time_tracker(table_tracker);
+  }
+}
+
+
 /**
   cleanup JOIN_TAB.
 
@@ -12747,6 +12972,11 @@ void JOIN_TAB::cleanup()
   select= 0;
   delete quick;
   quick= 0;
+  if (rowid_filter)
+  {
+    delete rowid_filter;
+    rowid_filter= 0;
+  }
   if (cache)
   {
     cache->free();
@@ -19667,6 +19897,8 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
   if (!join_tab->preread_init_done && join_tab->preread_init())
     DBUG_RETURN(NESTED_LOOP_ERROR);
 
+  join_tab->build_range_rowid_filter_if_needed();
+
   join->return_tab= join_tab;
 
   if (join_tab->last_inner)
@@ -20615,6 +20847,8 @@ int join_init_read_record(JOIN_TAB *tab)
   if (tab->filesort && tab->sort_table())     // Sort table.
     return 1;
 
+  tab->build_range_rowid_filter_if_needed();
+
   DBUG_EXECUTE_IF("kill_join_init_read_record",
                   tab->join->thd->set_killed(KILL_QUERY););
   if (tab->select && tab->select->quick && tab->select->quick->reset())
@@ -20629,6 +20863,8 @@ int join_init_read_record(JOIN_TAB *tab)
                   tab->join->thd->reset_killed(););
   if (!tab->preread_init_done  && tab->preread_init())
     return 1;
+
+
   if (init_read_record(&tab->read_record, tab->join->thd, tab->table,
                        tab->select, tab->filesort_result, 1,1, FALSE))
     return 1;
@@ -22662,6 +22898,12 @@ check_reverse_order:
         tab->use_quick=1;
         tab->ref.key= -1;
         tab->ref.key_parts=0;		// Don't use ref key.
+        tab->range_rowid_filter_info= 0;
+        if (tab->rowid_filter)
+	{
+          delete tab->rowid_filter;
+          tab->rowid_filter= 0;
+        }
         tab->read_first_record= join_init_read_record;
         if (tab->is_using_loose_index_scan())
           tab->join->tmp_table_param.precomputed_group_by= TRUE;
@@ -25289,11 +25531,13 @@ int print_explain_message_line(select_result_sink *result,
     item_list.push_back(item_null, mem_root);
 
   /* `rows` */
+  StringBuffer<64> rows_str;
   if (rows)
   {
-    item_list.push_back(new (mem_root) Item_int(thd, *rows,
-                                     MY_INT64_NUM_DECIMAL_DIGITS),
-                        mem_root);
+    rows_str.append_ulonglong((ulonglong)(*rows));
+    item_list.push_back(new (mem_root)
+                        Item_string_sys(thd, rows_str.ptr(),
+                                        rows_str.length()), mem_root);
   }
   else
     item_list.push_back(item_null, mem_root);
@@ -25393,7 +25637,7 @@ bool JOIN_TAB::save_explain_data(Explain_table_access *eta,
                                                     filesort)))
       return 1;
   }
-  
+  // psergey-todo: data for filtering!
   tracker= &eta->tracker;
   jbuf_tracker= &eta->jbuf_tracker;
 
@@ -25494,6 +25738,22 @@ bool JOIN_TAB::save_explain_data(Explain_table_access *eta,
   // psergey-todo: ^ check for error return code 
 
   /* Build "key", "key_len", and "ref" */
+
+  if (rowid_filter)
+  {
+    Range_rowid_filter *range_filter= (Range_rowid_filter *) rowid_filter;
+    QUICK_SELECT_I *quick= range_filter->get_select()->quick;
+
+    Explain_rowid_filter *erf= new (thd->mem_root) Explain_rowid_filter;
+    erf->quick= quick->get_explain(thd->mem_root);
+    erf->selectivity= range_rowid_filter_info->selectivity;
+    erf->rows= quick->records;
+    if (!(erf->tracker= new Rowid_filter_tracker(thd->lex->analyze_stmt)))
+      return 1;
+    rowid_filter->set_tracker(erf->tracker);
+    eta->rowid_filter= erf;
+  }
+
   if (tab_type == JT_NEXT)
   {
     key_info= table->key_info+index;

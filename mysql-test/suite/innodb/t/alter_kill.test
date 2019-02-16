@@ -44,23 +44,33 @@ connection default;
 disconnect con1;
 
 -- echo # Corrupt FIL_PAGE_OFFSET in bug16720368.ibd,
--- echo # and update the checksum to the "don't care" value.
+-- echo # and recompute innodb_checksum_algorithm=crc32
 perl;
-use strict;
-use warnings;
-use Fcntl qw(:DEFAULT :seek);
-do "$ENV{MTR_SUITE_DIR}/../innodb/include/crc32.pl";
-my $page_size = $ENV{PAGE_SIZE};
-sysopen IBD_FILE, "$ENV{MYSQLD_DATADIR}/test/bug16720368.ibd", O_RDWR || die "Cannot open bug16720368.ibd\n";
+do "$ENV{MTR_SUITE_DIR}/include/crc32.pl";
+my $file = "$ENV{MYSQLD_DATADIR}/test/bug16720368.ibd";
+open(FILE, "+<$file") || die "Unable to open $file";
+binmode FILE;
+my $ps= $ENV{PAGE_SIZE};
 my $page;
-sysread(IBD_FILE, $page, $page_size) || die "Cannot read bug16720368.ibd\n";
-substr($page, 4, 4) = pack("N", 4);
+die "Unable to read $file" unless sysread(FILE, $page, $ps) == $ps;
+substr($page,4,4)=pack("N",0xc001cafe);
 my $polynomial = 0x82f63b78; # CRC-32C
-my $ck = mycrc32(substr($page, 0, ($page_size-4)), 0, $polynomial);
-substr($page, ($page_size - 4), 4) = pack("N", $ck);
-sysseek(IBD_FILE, 0, SEEK_SET) || die "Cannot seek bug16720368.ibd\n";
-die unless syswrite(IBD_FILE, $page, $page_size) == $page_size;
-close IBD_FILE;
+my $full_crc32 = unpack("N",substr($page,54,4)) & 0x10; # FIL_SPACE_FLAGS
+if ($full_crc32)
+{
+    my $ck = mycrc32(substr($page, 0, $ps-4), 0, $polynomial);
+    substr($page, $ps-4, 4) = pack("N", $ck);
+}
+else
+{
+    my $ck= pack("N",mycrc32(substr($page, 4, 22), 0, $polynomial) ^
+		 mycrc32(substr($page, 38, $ps - 38 - 8), 0, $polynomial));
+    substr($page,0,4)=$ck;
+    substr($page,$ps-8,4)=$ck;
+}
+sysseek(FILE, 0, 0) || die "Unable to rewind $file\n";
+syswrite(FILE, $page, $ps)==$ps || die "Unable to write $file\n";
+close(FILE) || die "Unable to close $file";
 EOF
 
 -- echo # Restart mysqld
@@ -106,21 +116,31 @@ SELECT COUNT(*) FROM bug16720368;
 
 # Uncorrupt the FIL_PAGE_OFFSET.
 perl;
-use strict;
-use warnings;
-use Fcntl qw(:DEFAULT :seek);
-do "$ENV{MTR_SUITE_DIR}/../innodb/include/crc32.pl";
-my $page_size = $ENV{PAGE_SIZE};
-sysopen IBD_FILE, "$ENV{MYSQLD_DATADIR}/test/bug16720368.ibd", O_RDWR || die "Cannot open bug16720368.ibd\n";
+do "$ENV{MTR_SUITE_DIR}/include/crc32.pl";
+my $file = "$ENV{MYSQLD_DATADIR}/test/bug16720368.ibd";
+open(FILE, "+<$file") || die "Unable to open $file";
+binmode FILE;
+my $ps= $ENV{PAGE_SIZE};
 my $page;
-sysread(IBD_FILE, $page, $page_size) || die "Cannot read bug16720368.ibd\n";
-substr($page, 4, 4) = pack("N", 0);
+die "Unable to read $file" unless sysread(FILE, $page, $ps) == $ps;
+substr($page,4,4)=pack("N",0);
 my $polynomial = 0x82f63b78; # CRC-32C
-my $ck = mycrc32(substr($page, 0, ($page_size-4)), 0, $polynomial);
-substr($page, ($page_size - 4), 4) = pack("N", $ck);
-sysseek(IBD_FILE, 0, SEEK_SET) || die "Cannot seek bug16720368.ibd\n";
-die unless syswrite(IBD_FILE, $page, $page_size) == $page_size;
-close IBD_FILE;
+my $full_crc32 = unpack("N",substr($page,54,4)) & 0x10; # FIL_SPACE_FLAGS
+if ($full_crc32)
+{
+    my $ck = mycrc32(substr($page, 0, $ps-4), 0, $polynomial);
+    substr($page, $ps-4, 4) = pack("N", $ck);
+}
+else
+{
+    my $ck= pack("N",mycrc32(substr($page, 4, 22), 0, $polynomial) ^
+		 mycrc32(substr($page, 38, $ps - 38 - 8), 0, $polynomial));
+    substr($page,0,4)=$ck;
+    substr($page,$ps-8,4)=$ck;
+}
+sysseek(FILE, 0, 0) || die "Unable to rewind $file\n";
+syswrite(FILE, $page, $ps)==$ps || die "Unable to write $file\n";
+close(FILE) || die "Unable to close $file";
 EOF
 
 -- echo # Restart the server after uncorrupting the file.

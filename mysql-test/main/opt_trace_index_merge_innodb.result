@@ -1,3 +1,8 @@
+set @innodb_stats_persistent_save= @@innodb_stats_persistent;
+set @innodb_stats_persistent_sample_pages_save=
+@@innodb_stats_persistent_sample_pages;
+set global innodb_stats_persistent= 1;
+set global innodb_stats_persistent_sample_pages=100;
 create table t1
 ( 
 pk1 int not null,
@@ -115,9 +120,10 @@ explain select * from t1 where pk1 != 0  and key1 = 1	{
                         "rowid_ordered": true,
                         "using_mrr": false,
                         "index_only": false,
-                        "rows": 1001,
-                        "cost": 203.59,
-                        "chosen": true
+                        "rows": 1000,
+                        "cost": 206.39,
+                        "chosen": false,
+                        "cause": "cost"
                       },
                       {
                         "index": "key1",
@@ -126,7 +132,7 @@ explain select * from t1 where pk1 != 0  and key1 = 1	{
                         "using_mrr": false,
                         "index_only": false,
                         "rows": 1,
-                        "cost": 2.21,
+                        "cost": 2.3751,
                         "chosen": true
                       }
                     ],
@@ -134,10 +140,10 @@ explain select * from t1 where pk1 != 0  and key1 = 1	{
                       "intersecting_indexes": [
                         {
                           "index": "key1",
-                          "index_scan_cost": 1,
-                          "cumulateed_index_scan_cost": 1,
+                          "index_scan_cost": 1.0001,
+                          "cumulateed_index_scan_cost": 1.0001,
                           "disk_sweep_cost": 1.0014,
-                          "cumulative_total_cost": 2.0014,
+                          "cumulative_total_cost": 2.0015,
                           "usable": true,
                           "matching_rows_now": 1,
                           "intersect_covering_with_this_index": false,
@@ -145,9 +151,6 @@ explain select * from t1 where pk1 != 0  and key1 = 1	{
                         }
                       ],
                       "clustered_pk": {
-                        "index_scan_cost": 0.002,
-                        "cumulateed_index_scan_cost": 1.002,
-                        "disk_sweep_cost": 1.0014,
                         "clustered_pk_added_to_intersect": false,
                         "cause": "cost"
                       },
@@ -164,7 +167,7 @@ explain select * from t1 where pk1 != 0  and key1 = 1	{
                       "ranges": ["1 <= key1 <= 1"]
                     },
                     "rows_for_plan": 1,
-                    "cost_for_plan": 2.21,
+                    "cost_for_plan": 2.3751,
                     "chosen": true
                   }
                 }
@@ -173,7 +176,7 @@ explain select * from t1 where pk1 != 0  and key1 = 1	{
                 "selectivity_for_indexes": [
                   {
                     "index_name": "PRIMARY",
-                    "selectivity_from_index": 1.001
+                    "selectivity_from_index": 1
                   },
                   {
                     "index_name": "key1",
@@ -240,3 +243,6 @@ explain select * from t1 where pk1 != 0  and key1 = 1	{
 drop table t1;
 set @@optimizer_switch= @tmp_index_merge_ror_cpk;
 set optimizer_trace="enabled=off";
+set global innodb_stats_persistent= @innodb_stats_persistent_save;
+set global innodb_stats_persistent_sample_pages=
+@innodb_stats_persistent_sample_pages_save;

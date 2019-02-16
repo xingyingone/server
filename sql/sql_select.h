@@ -511,6 +511,18 @@ typedef struct st_join_table {
 
   bool preread_init_done;
 
+  /*
+    Cost info to the range filter used when joining this join table
+    (Defined when the best join order has been already chosen)
+  */
+  Range_rowid_filter_cost_info *range_rowid_filter_info;
+  /* Rowid filter to be used when joining this join table */
+  Rowid_filter *rowid_filter;
+  /* Becomes true just after the used range filter has been built / filled */
+  bool is_rowid_filter_built;
+
+  void build_range_rowid_filter_if_needed();
+
   void cleanup();
   inline bool is_using_loose_index_scan()
   {
@@ -885,6 +897,10 @@ public:
 };
 
 
+class Range_rowid_filter_cost_info;
+class Rowid_filter;
+
+
 /**
   Information about a position of table within a join order. Used in join
   optimization.
@@ -967,6 +983,10 @@ typedef struct st_position
 
   /* Info on splitting plan used at this position */  
   SplM_plan_info *spl_plan;
+
+  /* Cost info for the range filter used at this position */
+  Range_rowid_filter_cost_info *range_rowid_filter_info;
+
 } POSITION;
 
 typedef Bounds_checked_array<Item_null_result*> Item_null_array;
@@ -1616,6 +1636,8 @@ public:
   bool optimize_unflattened_subqueries();
   bool optimize_constant_subqueries();
   int init_join_caches();
+  bool make_range_rowid_filters();
+  bool init_range_rowid_filters();
   bool make_sum_func_list(List<Item> &all_fields, List<Item> &send_fields,
 			  bool before_group_by, bool recompute= FALSE);
 

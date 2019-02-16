@@ -110,6 +110,7 @@ SET(SQL_EMBEDDED_SOURCES emb_qcache.cc libmysqld.c lib_sql.cc
            ../sql/sql_analyze_stmt.cc ../sql/sql_analyze_stmt.h
            ../sql/compat56.cc
            ../sql/sql_type.cc ../sql/sql_type.h
+           ../sql/sql_type_json.cc
            ../sql/table_cache.cc ../sql/mf_iocache_encr.cc
            ../sql/item_inetfunc.cc
            ../sql/wsrep_dummy.cc ../sql/encryption.cc
@@ -122,6 +123,7 @@ SET(SQL_EMBEDDED_SOURCES emb_qcache.cc libmysqld.c lib_sql.cc
            ../sql/proxy_protocol.cc ../sql/backup.cc
            ../sql/sql_tvc.cc ../sql/sql_tvc.h
            ../sql/opt_split.cc
+           ../sql/rowid_filter.cc ../sql/rowid_filter.h
            ../sql/item_vers.cc
            ../sql/opt_trace.cc
            ${GEN_SOURCES}

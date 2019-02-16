@@ -1196,6 +1196,8 @@ bool parse_vcol_defs(THD *thd, MEM_ROOT *mem_root, TABLE *table,
       goto end;
   }
 
+  table->find_constraint_correlated_indexes();
+
   res=0;
 end:
   thd->restore_active_arena(table->expr_arena, &backup_arena);
@@ -1235,6 +1237,118 @@ static const Type_handler *old_frm_type_handler(uint pack_flag,
     return &type_handler_set;
   }
   return Type_handler::get_handler_by_real_type(field_type);
+}
+
+/* Set overlapped bitmaps for each index */
+
+void TABLE_SHARE::set_overlapped_keys()
+{
+  KEY *key1= key_info;
+  for (uint i= 0; i < keys; i++, key1++)
+  {
+    key1->overlapped.clear_all();
+    key1->overlapped.set_bit(i);
+  }
+  key1= key_info;
+  for (uint i= 0; i < keys; i++, key1++)
+  {
+    KEY *key2= key1 + 1;
+    for (uint j= i+1; j < keys; j++, key2++)
+    {
+      KEY_PART_INFO *key_part1= key1->key_part;
+      uint n1= key1->user_defined_key_parts;
+      uint n2= key2->user_defined_key_parts;
+      for (uint k= 0; k < n1; k++, key_part1++)
+      {
+        KEY_PART_INFO *key_part2= key2->key_part;
+        for (uint l= 0; l < n2; l++, key_part2++)
+	{
+          if (key_part1->fieldnr == key_part2->fieldnr)
+	  {
+            key1->overlapped.set_bit(j);
+            key2->overlapped.set_bit(i);
+            goto end_checking_overlap;
+          }
+        }
+      }
+    end_checking_overlap:
+      ;
+    }
+  }
+}
+
+
+bool Item_field::check_index_dependence(void *arg)
+{
+  TABLE *table= (TABLE *)arg;
+
+  KEY *key= table->key_info;
+  for (uint j= 0; j < table->s->keys; j++, key++)
+  {
+    if (table->constraint_dependent_keys.is_set(j))
+      continue;
+
+    KEY_PART_INFO *key_part= key->key_part;
+    uint n= key->user_defined_key_parts;
+
+    for (uint k= 0; k < n; k++, key_part++)
+    {
+      if (this->field == key_part->field)
+      {
+        table->constraint_dependent_keys.set_bit(j);
+        break;
+      }
+    }
+  }
+  return false;
+}
+
+
+/**
+  @brief
+    Find keys that occur in the same constraint on this table
+
+  @details
+    Constraints on this table are checked only.
+
+    The method goes through constraints list trying to find at
+    least two keys which parts participate in some constraint.
+    These keys are called constraint correlated.
+
+    Each key has its own key map with the information about with
+    which keys it is constraint correlated. Bit in this map is set
+    only if keys are constraint correlated.
+    This method fills each keys constraint correlated key map.
+*/
+
+void TABLE::find_constraint_correlated_indexes()
+{
+  if (s->keys == 0)
+    return;
+
+  KEY *key= key_info;
+  for (uint i= 0; i < s->keys; i++, key++)
+  {
+    key->constraint_correlated.clear_all();
+    key->constraint_correlated.set_bit(i);
+  }
+
+  if (!check_constraints)
+    return;
+
+  for (Virtual_column_info **chk= check_constraints ; *chk ; chk++)
+  {
+    constraint_dependent_keys.clear_all();
+    (*chk)->expr->walk(&Item::check_index_dependence, 0, this);
+
+    if (constraint_dependent_keys.bits_set() <= 1)
+      continue;
+
+    uint key_no= 0;
+    key_map::Iterator ki(constraint_dependent_keys);
+    while ((key_no= ki++) != key_map::Iterator::BITMAP_END)
+      key_info[key_no].constraint_correlated.merge(constraint_dependent_keys);
+  }
 }
 
 
@@ -2531,6 +2645,8 @@ int TABLE_SHARE::init_from_binary_frm_image(THD *thd, bool write,
     bfill(share->default_values + (null_flags - (uchar*) record),
           null_length, 255);
   }
+
+  set_overlapped_keys();
 
   /* Handle virtual expressions */
   if (vcol_screen_length && share->frm_version >= FRM_VER_EXPRESSSIONS)
@@ -4677,6 +4793,9 @@ void TABLE::init(THD *thd, TABLE_LIST *tl)
   created= TRUE;
   cond_selectivity= 1.0;
   cond_selectivity_sampling_explain= NULL;
+  range_rowid_filter_cost_info_elems= 0;
+  range_rowid_filter_cost_info_ptr= NULL;
+  range_rowid_filter_cost_info= NULL;
 #ifdef HAVE_REPLICATION
   /* used in RBR Triggers */
   master_had_triggers= 0;
