@@ -5,7 +5,7 @@
  SELECT @@alter_algorithm;
  @@alter_algorithm
 -COPY
-+INSTANT
++NOCOPY
  # All the following cases needs table rebuild
  # Add and Drop primary key
  ALTER TABLE t1 ADD COLUMN col1 INT NOT NULL,DROP PRIMARY KEY,ADD PRIMARY KEY(col1);
