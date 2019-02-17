@@ -408,7 +408,8 @@ Datafile::validate_to_dd(ulint space_id, ulint flags)
 	/* Make sure the datafile we found matched the space ID.
 	If the datafile is a file-per-table tablespace then also match
 	the row format and zip page size. */
-	if (m_space_id == space_id && m_flags == flags) {
+	if (m_space_id == space_id
+	    && fil_space_t::is_flags_equal(m_flags, flags)) {
 		/* Datafile matches the tablespace expected. */
 		return(DB_SUCCESS);
 	}

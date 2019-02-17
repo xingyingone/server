@@ -73,6 +73,11 @@ buf_flush_relocate_on_flush_list(
 @param[in,out]	bpage	flushed page
 @param[in]	dblwr	whether the doublewrite buffer was used */
 void buf_flush_write_complete(buf_page_t* bpage, bool dblwr);
+
+/** Assign the full crc32 checksum for non-compressed page.
+@param[in,out]	page	page to be updated */
+void buf_flush_assign_full_crc32_checksum(byte* page);
+
 /** Initialize a page for writing to the tablespace.
 @param[in]	block			buffer block; NULL if bypassing the buffer pool
 @param[in,out]	page			page frame

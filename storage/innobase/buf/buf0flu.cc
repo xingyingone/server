@@ -747,6 +747,15 @@ buf_flush_update_zip_checksum(
 	mach_write_to_4(page + FIL_PAGE_SPACE_OR_CHKSUM, checksum);
 }
 
+/** Assign the full crc32 checksum for non-compressed page.
+@param[in,out]	page	page to be updated */
+void buf_flush_assign_full_crc32_checksum(byte* page)
+{
+	uint32_t checksum = buf_calc_page_full_crc32(page);
+	mach_write_to_4(page + srv_page_size - FIL_PAGE_FCHKSUM_CRC32,
+			checksum);
+}
+
 /** Initialize a page for writing to the tablespace.
 @param[in]	block			buffer block; NULL if bypassing
 					the buffer pool
@@ -893,11 +902,7 @@ buf_flush_init_for_writing(
 	uint32_t checksum = BUF_NO_CHECKSUM_MAGIC;
 
 	if (use_full_checksum) {
-		checksum = buf_calc_page_full_crc32(page);
-		mach_write_to_4(
-			page + srv_page_size - FIL_PAGE_FCHKSUM_CRC32,
-			checksum);
-		return;
+		return buf_flush_assign_full_crc32_checksum(page);
 	}
 
 	switch (srv_checksum_algorithm_t(srv_checksum_algorithm)) {

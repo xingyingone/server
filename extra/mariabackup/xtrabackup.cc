@@ -1353,7 +1353,7 @@ struct my_option xb_server_options[] =
   "The algorithm InnoDB uses for page checksumming. [CRC32, STRICT_CRC32, "
    "INNODB, STRICT_INNODB, NONE, STRICT_NONE]", &srv_checksum_algorithm,
    &srv_checksum_algorithm, &innodb_checksum_algorithm_typelib, GET_ENUM,
-   REQUIRED_ARG, SRV_CHECKSUM_ALGORITHM_CRC32, 0, 0, 0, 0, 0},
+   REQUIRED_ARG, SRV_CHECKSUM_ALGORITHM_FULL_CRC32, 0, 0, 0, 0, 0},
 
   {"innodb_undo_directory", OPT_INNODB_UNDO_DIRECTORY,
    "Directory where undo tablespace files live, this path can be absolute.",
@@ -1689,7 +1689,7 @@ xb_get_one_option(int optid,
 
   case OPT_INNODB_CHECKSUM_ALGORITHM:
 
-    ut_a(srv_checksum_algorithm <= SRV_CHECKSUM_ALGORITHM_STRICT_NONE);
+    ut_a(srv_checksum_algorithm <= SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32);
 
     ADD_PRINT_PARAM_OPT(innodb_checksum_algorithm_names[srv_checksum_algorithm]);
     break;
@@ -1864,7 +1864,15 @@ static bool innodb_init_param()
 	srv_sys_space.set_space_id(TRX_SYS_SPACE);
 	srv_sys_space.set_name("innodb_system");
 	srv_sys_space.set_path(srv_data_home);
-	srv_sys_space.set_flags(FSP_FLAGS_PAGE_SSIZE());
+	switch (srv_checksum_algorithm) {
+	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
+	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
+		srv_sys_space.set_flags(FSP_FLAGS_FCHKSUM_MASK_MARKER
+					| FSP_FLAGS_FCHKSUM_PAGE_SSIZE());
+		break;
+	default:
+		srv_sys_space.set_flags(FSP_FLAGS_PAGE_SSIZE());
+	}
 
 	if (!srv_sys_space.parse_params(innobase_data_file_path, true)) {
 		goto error;
@@ -3296,6 +3304,15 @@ static dberr_t xb_assign_undo_space_start()
 	buf = static_cast<byte*>(ut_malloc_nokey(2U << srv_page_size_shift));
 	page = static_cast<byte*>(ut_align(buf, srv_page_size));
 
+	if (!os_file_read(IORequestRead, file, page,
+			  0, srv_page_size)) {
+		msg("Reading first page failed.\n");
+		error = DB_ERROR;
+		goto func_exit;
+	}
+
+	fsp_flags = mach_read_from_4(
+			page + FSP_HEADER_OFFSET + FSP_SPACE_FLAGS);
 retry:
 	if (!os_file_read(IORequestRead, file, page,
 			  TRX_SYS_PAGE_NO << srv_page_size_shift,
@@ -3304,9 +3321,6 @@ retry:
 		error = DB_ERROR;
 		goto func_exit;
 	}
-
-	fsp_flags = mach_read_from_4(
-		page + FSP_HEADER_OFFSET + FSP_SPACE_FLAGS);
 
 	/* TRX_SYS page can't be compressed or encrypted. */
 	if (buf_page_is_corrupted(false, page, fsp_flags)) {
