@@ -1123,6 +1123,14 @@ nonzero:
 				crc32 = buf_calc_page_crc32(read_buf);
 				crc32_inited = true;
 
+				DBUG_EXECUTE_IF(
+					"page_intermittent_checksum_mismatch", {
+					static int page_counter;
+					if (page_counter++ == 2) {
+						crc32++;
+					}
+				});
+
 				if (checksum_field2 != crc32
 				    && checksum_field2
 				       != buf_calc_page_old_checksum(read_buf)) {
