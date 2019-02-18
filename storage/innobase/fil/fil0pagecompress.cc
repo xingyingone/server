@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (C) 2013, 2018, MariaDB Corporation.
+Copyright (C) 2013, 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -76,25 +76,19 @@ Updated 14/02/2015
 /** Compress a page_compressed page before writing to a data file.
 @param[in]	buf		page to be compressed
 @param[out]	out_buf		compressed page
-@param[in]	level		compression level
+@param[in]	flags		tablespace flags
 @param[in]	block_size	file system block size
 @param[in]	encrypted	whether the page will be subsequently encrypted
-@param[in]	flags		tablespace flags
 @return actual length of compressed page
 @retval	0	if the page was not compressed */
 ulint fil_page_compress(
 	const byte*	buf,
 	byte*		out_buf,
-	ulint		level,
+	ulint		flags,
 	ulint		block_size,
-	bool		encrypted
-#ifdef UNIV_DEBUG
-	,ulint		flags)
-#else
-	)
-#endif /* UNIV_DEBUG */
+	bool		encrypted)
 {
-	int comp_level = int(level);
+	int comp_level = int(fsp_flags_get_page_compression_level(flags));
 	ulint header_len = FIL_PAGE_DATA + FIL_PAGE_COMPRESSED_SIZE;
 	/* Cache to avoid change during function execution */
 	ulint comp_method = innodb_compression_algorithm;

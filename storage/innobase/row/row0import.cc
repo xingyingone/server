@@ -3542,14 +3542,9 @@ not_encrypted:
 				if (ulint len = fil_page_compress(
 					    src,
 					    page_compress_buf,
-					    0,/* FIXME: compression level */
+					    callback.get_space_flags(),
 					    512,/* FIXME: proper block size */
-					    encrypted
-#ifdef UNIV_DEBUG
-					    ,callback.get_space_flags())) {
-#else
-					    )) {
-#endif
+					    encrypted)) {
 					/* FIXME: remove memcpy() */
 					memcpy(src, page_compress_buf, len);
 					memset(src + len, 0,

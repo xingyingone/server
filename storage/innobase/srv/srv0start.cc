@@ -654,7 +654,7 @@ static bool srv_undo_tablespace_open(const char* name, ulint space_id,
 
 	fil_set_max_space_id_if_bigger(space_id);
 
-	ulint fsp_flags = 0;
+	ulint fsp_flags;
 	switch (srv_checksum_algorithm) {
 	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:

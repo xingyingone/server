@@ -7438,15 +7438,10 @@ not_compressed:
 		buf_tmp_reserve_compression_buf(slot);
 		byte* tmp = slot->comp_buf;
 		ulint out_len = fil_page_compress(
-			src_frame, tmp,
-			fsp_flags_get_page_compression_level(space->flags),
+			src_frame, tmp, space->flags,
 			fil_space_get_block_size(space, bpage->id.page_no()),
-			encrypted
-#ifdef UNIV_DEBUG
-			, space->flags);
-#else
-			);
-#endif
+			encrypted);
+
 		if (!out_len) {
 			goto not_compressed;
 		}
