@@ -7084,9 +7084,6 @@ uint Field_str::is_equal(Create_field *new_field)
     return new_field->charset == field_charset
       ? IS_EQUAL_YES : IS_EQUAL_PACK_LENGTH;
 
-  if (table->file->ha_table_flags() & HA_EXTENDED_TYPES_CONVERSION)
-    return IS_EQUAL_PACK_LENGTH_EXT;
-
   return IS_EQUAL_NO;
 }
 
@@ -7946,11 +7943,6 @@ uint Field_varstring::is_equal(Create_field *new_field)
         field_length > 255 ||
         (table->file->ha_table_flags() & HA_EXTENDED_TYPES_CONVERSION))
       return IS_EQUAL_PACK_LENGTH; // VARCHAR, longer length
-  }
-  else if (new_type_handler == &type_handler_string) // converting to CHAR
-  {
-    if (table->file->ha_table_flags() & HA_EXTENDED_TYPES_CONVERSION)
-      return IS_EQUAL_PACK_LENGTH_EXT;
   }
 
   return IS_EQUAL_NO;
@@ -9550,13 +9542,23 @@ uint Field_num::is_equal(Create_field *new_field)
 
   if (th == new_th && new_field->pack_length == pack_length())
     return IS_EQUAL_YES;
+  /* FIXME: Test and consider returning IS_EQUAL_YES for the following:
+  TINYINT UNSIGNED to BIT(8)
+  SMALLINT UNSIGNED to BIT(16)
+  MEDIUMINT UNSIGNED to BIT(24)
+  INT UNSIGNED to BIT(32)
+  BIGINT UNSIGNED to BIT(64)
 
-  if (table->file->ha_table_flags() & HA_EXTENDED_TYPES_CONVERSION)
-  {
-    if (th->result_type() == new_th->result_type() &&
-        new_field->pack_length >= pack_length())
-      return IS_EQUAL_PACK_LENGTH_EXT;
-  }
+  BIT(1..7) to TINYINT, or BIT(1..8) to TINYINT UNSIGNED
+  BIT(9..15) to SMALLINT, or BIT(9..16) to SMALLINT UNSIGNED
+  BIT(17..23) to MEDIUMINT, or BIT(17..24) to MEDIUMINT UNSIGNED
+  BIT(25..31) to INT, or BIT(25..32) to INT UNSIGNED
+  BIT(57..63) to BIGINT, or BIT(57..64) to BIGINT UNSIGNED
+
+  Note: InnoDB stores integers in big-endian format, and BIT appears
+  to use big-endian format. For storage engines that use little-endian
+  format for integers, we can only return IS_EQUAL_YES for the TINYINT
+  conversion. */
 
   return IS_EQUAL_NO;
 }

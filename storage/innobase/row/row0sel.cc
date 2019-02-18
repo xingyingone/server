@@ -2708,7 +2708,6 @@ row_sel_field_store_in_mysql_format_func(
 	const byte*	data,
 	ulint		len)
 {
-	byte*			ptr;
 #ifdef UNIV_DEBUG
 	const dict_field_t*	field
 		= templ->is_virtual
@@ -2720,37 +2719,13 @@ row_sel_field_store_in_mysql_format_func(
 	UNIV_MEM_ASSERT_W(dest, templ->mysql_col_len);
 	UNIV_MEM_INVALID(dest, templ->mysql_col_len);
 
+	byte* pad = dest + len;
+
 	switch (templ->type) {
 		const byte*	field_end;
-		byte*		pad;
-	case DATA_INT:
-		/* Convert integer data from Innobase to a little-endian
-		format, sign bit restored to normal */
-
-		ptr = dest + len;
-
-		for (;;) {
-			ptr--;
-			*ptr = *data;
-			if (ptr == dest) {
-				break;
-			}
-			data++;
-		}
-
-		if (!templ->is_unsigned) {
-			dest[len - 1] = (byte) (dest[len - 1] ^ 128);
-		}
-
-		ut_ad(templ->mysql_col_len == len
-		      || !index->table->not_redundant());
-		break;
-
 	case DATA_VARCHAR:
 	case DATA_VARMYSQL:
 	case DATA_BINARY:
-	case DATA_CHAR:
-	case DATA_FIXBINARY:
 		field_end = dest + templ->mysql_col_len;
 
 		if (templ->mysql_type == DATA_MYSQL_TRUE_VARCHAR) {
@@ -2771,7 +2746,14 @@ row_sel_field_store_in_mysql_format_func(
 
 		/* Pad with trailing spaces. */
 
-		pad = dest + len;
+		if (pad == field_end) {
+			break;
+		}
+
+		if (UNIV_UNLIKELY(templ->type == DATA_FIXBINARY)) {
+			memset(pad, 0, field_end - pad);
+			break;
+		}
 
 		ut_ad(templ->mbminlen <= templ->mbmaxlen);
 
@@ -2838,8 +2820,7 @@ row_sel_field_store_in_mysql_format_func(
 		ut_ad(len * templ->mbmaxlen >= templ->mysql_col_len
 		      || (field_no == templ->icp_rec_field_no
 			  && field->prefix_len > 0)
-		      || templ->rec_field_is_prefix
-		      || !index->table->not_redundant());
+		      || templ->rec_field_is_prefix);
 
 		ut_ad(templ->is_virtual
 		      || !(field->prefix_len % templ->mbmaxlen));
@@ -2849,7 +2830,7 @@ row_sel_field_store_in_mysql_format_func(
 			done in row0mysql.cc, function
 			row_mysql_store_col_in_innobase_format(). */
 
-			memset(dest + len, 0x20, templ->mysql_col_len - len);
+			memset(pad, 0x20, templ->mysql_col_len - len);
 		}
 		break;
 
@@ -2861,16 +2842,29 @@ row_sel_field_store_in_mysql_format_func(
 		ut_ad(0);
 		/* fall through */
 
+	case DATA_CHAR:
+	case DATA_FIXBINARY:
 	case DATA_FLOAT:
 	case DATA_DOUBLE:
 	case DATA_DECIMAL:
-		/* Above are the valid column types for MySQL data. */
 #endif /* UNIV_DEBUG */
 		ut_ad((templ->is_virtual && !field)
 		      || (field && field->prefix_len
 				? field->prefix_len == len
 				: templ->mysql_col_len == len));
 		memcpy(dest, data, len);
+		break;
+
+	case DATA_INT:
+		/* Convert InnoDB big-endian integer to little-endian
+		format, sign bit restored to 2's complement form */
+		DBUG_ASSERT(templ->mysql_col_len == len);
+
+		byte* ptr = pad;
+		do *--ptr = *data++; while (ptr != dest);
+		if (!templ->is_unsigned) {
+			pad[-1] ^= 0x80;
+		}
 	}
 }
 
