@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2016, Oracle and/or its affiliates. All Rights Reserved.
-Copyright (c) 2014, 2018, MariaDB Corporation.
+Copyright (c) 2014, 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -34,6 +34,16 @@ have a smaller fil_space_t::id. */
 #define SRV_TMP_SPACE_ID		0xFFFFFFFEU
 
 #include "ut0byte.h"
+
+/* Possible values of innodb_compression_algorithm */
+#define PAGE_UNCOMPRESSED	0
+#define PAGE_ZLIB_ALGORITHM	1
+#define PAGE_LZ4_ALGORITHM	2
+#define PAGE_LZO_ALGORITHM	3
+#define PAGE_LZMA_ALGORITHM	4
+#define PAGE_BZIP2_ALGORITHM	5
+#define PAGE_SNAPPY_ALGORITHM	6
+#define PAGE_ALGORITHM_LAST	PAGE_SNAPPY_ALGORITHM
 
 /** @name Flags for inserting records in order
 If records are inserted in order, there are the following
@@ -228,12 +238,6 @@ to ROW_FORMAT=REDUNDANT and ROW_FORMAT=COMPACT. */
 /** Stores the compressed algo for full checksum format. */
 #define FSP_FLAGS_FCHKSUM_WIDTH_COMPRESSED_ALGO	3
 
-/** Width of all currently known persistent tablespace flags
-in full checksum format */
-#define FSP_FLAGS_FCHKSUM_WIDTH	(FSP_FLAGS_FCHKSUM_WIDTH_PAGE_SSIZE     \
-				 + FSP_FLAGS_FCHKSUM_WIDTH_MARKER       \
-				 + FSP_FLAGS_FCHKSUM_WIDTH_COMPRESSED_ALGO)
-
 /* FSP_SPACE_FLAGS position and name in MySQL 5.6/MariaDB 10.0 or older
 and MariaDB 10.1.20 or older MariaDB 10.1 and in MariaDB 10.1.21
 or newer.
@@ -391,10 +395,6 @@ in full crc32 format. */
 		((flags & FSP_FLAGS_FCHKSUM_MASK_COMPRESSED_ALGO)	\
 		>> FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO)
 
-/** Return the contents of the UNUSED bits */
-#define FSP_FLAGS_GET_UNUSED(flags)				\
-		(flags >> FSP_FLAGS_POS_UNUSED)
-
 /** @return the value of the DATA_DIR field */
 #define FSP_FLAGS_HAS_DATA_DIR(flags)				\
 	(flags & 1U << FSP_FLAGS_MEM_DATA_DIR)
@@ -409,7 +409,7 @@ in full crc32 format. */
 tablespace header at offset FSP_SPACE_FLAGS for full crc32 format.
 @param[in]	flags	the contents of FSP_SPACE_FLAGS
 @return	whether the flags are correct in full crc32 format */
-static bool fsp_flags_fchksum_is_valid(ulint flags)
+inline bool fsp_flags_fchksum_is_valid(ulint flags)
 {
 	ut_ad(flags & FSP_FLAGS_FCHKSUM_MASK_MARKER);
 
@@ -419,14 +419,9 @@ static bool fsp_flags_fchksum_is_valid(ulint flags)
 		return false;
 	}
 
-	const ulint page_compress_algo
-		= FSP_FLAGS_FCHKSUM_GET_COMPRESSED_ALGO(flags);
+	flags >>= FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO;
 
-	if (page_compress_algo > 6) {
-		return false;
-	}
-
-	return true;
+	return flags <= PAGE_ALGORITHM_LAST;
 }
 
 /** Validate the tablespace flags, which are stored in the
