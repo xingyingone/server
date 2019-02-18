@@ -3462,8 +3462,7 @@ not_encrypted:
 
 			/* For full_crc32 format, skip checksum check
 			after decryption. */
-			bool skip_checksum_check = full_crc32 && encrypted
-				 && block->page.id.page_no() > 0;
+			bool skip_checksum_check = full_crc32 && encrypted;
 
 			/* If the original page is page_compressed, we need
 			to decompress it before adjusting further. */
