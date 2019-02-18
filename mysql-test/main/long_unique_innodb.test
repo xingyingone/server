@@ -1,5 +1,4 @@
 --source include/have_innodb.inc
---source include/big_test.inc
 
 create table t1(a blob unique) engine= InnoDB;
 insert into t1 values('RUC');
@@ -14,13 +13,15 @@ connect ('con1', localhost, root,,);
 connect ('con2', localhost, root,,);
 
 --connection con1
+set innodb_lock_wait_timeout= 2;
 set  transaction isolation level READ UNCOMMITTED;
 start transaction;
 insert into t1 values('RUC');
 --connection con2
+set innodb_lock_wait_timeout= 2;
 set  transaction isolation level READ UNCOMMITTED;
 start transaction;
---error ER_DUP_ENTRY
+--error ER_LOCK_WAIT_TIMEOUT
 insert into t1 values ('RUC');
 
 --connection con1
@@ -33,6 +34,7 @@ commit;
 set  transaction isolation level READ COMMITTED;
 start transaction;
 --error ER_DUP_ENTRY
+--error ER_LOCK_WAIT_TIMEOUT
 insert into t1 values ('RC');
 commit;
 
@@ -46,6 +48,7 @@ commit;
 set  transaction isolation level REPEATABLE READ;
 start transaction;
 --error ER_DUP_ENTRY
+--error ER_LOCK_WAIT_TIMEOUT
 insert into t1 values ('RR');
 
 --connection con1
@@ -58,6 +61,7 @@ commit;
 set  transaction isolation level SERIALIZABLE;
 start transaction;
 --error ER_DUP_ENTRY
+--error ER_LOCK_WAIT_TIMEOUT
 insert into t1 values ('S');
 commit;
 

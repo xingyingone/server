@@ -1,8 +1,25 @@
 --source include/have_debug.inc
+--source include/have_innodb.inc
 --echo #In this test case we will check what will happen in the case of hash collision
 
 SET debug_dbug="d,same_long_unique_hash";
 create table t1(a blob unique);
+
+FLUSH STATUS;
+insert into t1 values('xyz');
+insert into t1 values('abc');
+insert into t1 values('sachin');
+--error ER_DUP_ENTRY
+insert into t1 values('sachin');
+insert into t1 values('maria');
+--error ER_DUP_ENTRY
+insert into t1 values('maria');
+drop table t1;
+SHOW STATUS LIKE 'handler_read_next';
+
+SET debug_dbug="";
+create table t1(a blob unique);
+FLUSH STATUS;
 
 insert into t1 values('xyz');
 insert into t1 values('abc');
@@ -13,7 +30,9 @@ insert into t1 values('maria');
 --error ER_DUP_ENTRY
 insert into t1 values('maria');
 drop table t1;
+SHOW STATUS LIKE 'handler_read_next';
 
+SET debug_dbug="d,same_long_unique_hash";
 create table t1(a blob unique, b blob unique);
 
 insert into t1 values('xyz', 11);
@@ -54,9 +73,9 @@ create table t1 ( a blob , b blob , c blob , d blob , unique (a,b), unique(c, d)
 SET debug_dbug="";
 drop table t1;
 
---echo ##table->field offset will be changed because original field + hash_field > 8
 SET debug_dbug="d,print_long_unique_internal_state";
-create table t1 ( a int , b int , c int , d int , e int, f int, g int , i blob unique , j blob unique );
+#create table t1 ( a blob not null, b blob not null, c blob not null, d blob not null, unique (a,b), unique(c, d));
+create table t1(a int primary key, b blob unique , c blob unique not null);
 SET debug_dbug="";
 drop table t1;
 
@@ -66,8 +85,8 @@ create table t1(a int ,b int , c int,  unique(a, b, c) using hash);
 SET debug_dbug="";
 drop table t1;
 
---echo ##Using hash but with memory engine so no long unique column
-SET debug_dbug="d,print_long_unique_internal_state";
-create table t1(a int ,b int , c int,  unique(a, b, c) using hash) engine=memory;
-SET debug_dbug="";
-drop table t1;
+#--echo ##Using hash but with memory engine so no long unique column
+#SET debug_dbug="d,print_long_unique_internal_state";
+#create table t1(a int ,b int , c int,  unique(a, b, c) using hash) engine=memory;
+#SET debug_dbug="";
+#drop table t1;

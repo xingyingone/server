@@ -1029,7 +1029,7 @@ public:
   const Type_handler *type_handler() const { return &type_handler_long; }
   Item *get_copy(THD *thd)
   { return get_item_copy<Item_func_hash>(thd, this); }
-  const char *func_name() const { return "HASH"; }
+  const char *func_name() const { return "<hash>"; }
 };
 
 class Item_longlong_func: public Item_int_func

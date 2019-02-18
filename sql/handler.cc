@@ -3587,6 +3587,8 @@ void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag)
   }
   else
   {
+    if (key->algorithm == HA_KEY_ALG_LONG_HASH)
+      setup_keyinfo_hash(key);
     /* Table is opened and defined at this point */
     key_unpack(&str,table, key);
     uint max_length=MYSQL_ERRMSG_SIZE-(uint) strlen(msg);
@@ -3597,6 +3599,8 @@ void print_keydup_error(TABLE *table, KEY *key, const char *msg, myf errflag)
     }
     my_printf_error(ER_DUP_ENTRY, msg, errflag, str.c_ptr_safe(),
                     key->name.str);
+    if (key->algorithm == HA_KEY_ALG_LONG_HASH)
+      re_setup_keyinfo_hash(key);
   }
 }
 
@@ -3613,7 +3617,6 @@ void print_keydup_error(TABLE *table, KEY *key, myf errflag)
                      ER_THD(table->in_use, ER_DUP_ENTRY_WITH_KEY_NAME),
                      errflag);
 }
-
 
 /**
   Print error that we got from handler function.
@@ -3686,16 +3689,7 @@ void handler::print_error(int error, myf errflag)
       uint key_nr=get_dup_key(error);
       if ((int) key_nr >= 0 && key_nr < table->s->keys)
       {
-        KEY *long_key= NULL;
-        if (table->key_info[key_nr].algorithm
-                == HA_KEY_ALG_LONG_HASH)
-        {
-          long_key= table->key_info + key_nr;
-            setup_keyinfo_hash(long_key);
-        }
         print_keydup_error(table, &table->key_info[key_nr], errflag);
-        if (long_key)
-          re_setup_keyinfo_hash(long_key);
         DBUG_VOID_RETURN;
       }
     }
@@ -6341,8 +6335,7 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
   if (result == HA_ERR_LOCK_WAIT_TIMEOUT)
   {
     table->file->errkey= key_no;
-    //TODO check if this is the only case
-    error= HA_ERR_FOUND_DUPP_KEY;
+    error= HA_ERR_LOCK_WAIT_TIMEOUT;
   }
   exit:
   h->ha_index_end();

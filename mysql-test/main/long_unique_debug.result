@@ -98,10 +98,10 @@ table->s->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 1
 table->s->key_info[0] flags & HA_NOSAME = 1
 
 Printing table->key_info->key_part[0] info
-key_part->offset = 31
-key_part->field_name = DB_ROW_HASH_1
+key_part->offset = 47
+key_part->field_name = DB_ROW_HASH_3
 key_part->length = 8
-key_part->null_bit = 8
+key_part->null_bit = 32
 key_part->null_offset = 0
 
 Printing share->key_info->key_part[0] info
@@ -142,10 +142,10 @@ table->s->key_info[2] algorithm == HA_KEY_ALG_LONG_HASH = 1
 table->s->key_info[2] flags & HA_NOSAME = 1
 
 Printing table->key_info->key_part[0] info
-key_part->offset = 47
-key_part->field_name = DB_ROW_HASH_3
+key_part->offset = 31
+key_part->field_name = DB_ROW_HASH_1
 key_part->length = 8
-key_part->null_bit = 32
+key_part->null_bit = 8
 key_part->null_offset = 0
 
 Printing share->key_info->key_part[0] info
@@ -214,10 +214,10 @@ table->s->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 1
 table->s->key_info[0] flags & HA_NOSAME = 1
 
 Printing table->key_info->key_part[0] info
-key_part->offset = 41
-key_part->field_name = DB_ROW_HASH_1
+key_part->offset = 49
+key_part->field_name = DB_ROW_HASH_2
 key_part->length = 8
-key_part->null_bit = 16
+key_part->null_bit = 32
 key_part->null_offset = 0
 
 Printing share->key_info->key_part[0] info
@@ -243,10 +243,10 @@ table->s->key_info[1] algorithm == HA_KEY_ALG_LONG_HASH = 1
 table->s->key_info[1] flags & HA_NOSAME = 1
 
 Printing table->key_info->key_part[0] info
-key_part->offset = 49
-key_part->field_name = DB_ROW_HASH_2
+key_part->offset = 41
+key_part->field_name = DB_ROW_HASH_1
 key_part->length = 8
-key_part->null_bit = 32
+key_part->null_bit = 16
 key_part->null_offset = 0
 
 Printing share->key_info->key_part[0] info
@@ -303,37 +303,36 @@ table->field[5]->null_bit_pos = 32
 
 SET debug_dbug="";
 drop table t1;
-##table->field offset will be changed because original field + hash_field > 8
 SET debug_dbug="d,print_long_unique_internal_state";
-create table t1 ( a int , b int , c int , d int , e int, f int, g int , i blob unique , j blob unique );
+create table t1(a int primary key, b blob unique , c blob unique not null);
 Warnings:
 Note	1	Printing Table state, It will print table fields, fields->offset,field->null_bit, field->null_pos and key_info ... 
 
 Printing  Table  keyinfo
 
-table->s->reclength 66
-table->s->fields 11
+table->s->reclength 41
+table->s->fields 5
 
 table->key_info[0] user_defined_key_parts = 1
-table->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 1
-table->key_info[0] flags & HA_NOSAME = 0
+table->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 0
+table->key_info[0] flags & HA_NOSAME = 1
 
 table->s->key_info[0] user_defined_key_parts = 1
-table->s->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 1
+table->s->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 0
 table->s->key_info[0] flags & HA_NOSAME = 1
 
 Printing table->key_info->key_part[0] info
-key_part->offset = 50
-key_part->field_name = DB_ROW_HASH_1
-key_part->length = 8
-key_part->null_bit = 2
-key_part->null_offset = 1
+key_part->offset = 1
+key_part->field_name = a
+key_part->length = 4
+key_part->null_bit = 0
+key_part->null_offset = 0
 
 Printing share->key_info->key_part[0] info
-key_part->offset = 30
-key_part->field_name = i
-key_part->length = 0
-key_part->null_bit = 128
+key_part->offset = 1
+key_part->field_name = a
+key_part->length = 4
+key_part->null_bit = 0
 key_part->null_offset = 0
 
 table->key_info[1] user_defined_key_parts = 1
@@ -345,86 +344,72 @@ table->s->key_info[1] algorithm == HA_KEY_ALG_LONG_HASH = 1
 table->s->key_info[1] flags & HA_NOSAME = 1
 
 Printing table->key_info->key_part[0] info
-key_part->offset = 58
+key_part->offset = 33
 key_part->field_name = DB_ROW_HASH_2
 key_part->length = 8
-key_part->null_bit = 4
-key_part->null_offset = 1
+key_part->null_bit = 0
+key_part->null_offset = 0
 
 Printing share->key_info->key_part[0] info
-key_part->offset = 40
-key_part->field_name = j
+key_part->offset = 15
+key_part->field_name = c
+key_part->length = 0
+key_part->null_bit = 0
+key_part->null_offset = 0
+
+table->key_info[2] user_defined_key_parts = 1
+table->key_info[2] algorithm == HA_KEY_ALG_LONG_HASH = 1
+table->key_info[2] flags & HA_NOSAME = 0
+
+table->s->key_info[2] user_defined_key_parts = 1
+table->s->key_info[2] algorithm == HA_KEY_ALG_LONG_HASH = 1
+table->s->key_info[2] flags & HA_NOSAME = 1
+
+Printing table->key_info->key_part[0] info
+key_part->offset = 25
+key_part->field_name = DB_ROW_HASH_1
+key_part->length = 8
+key_part->null_bit = 2
+key_part->null_offset = 0
+
+Printing share->key_info->key_part[0] info
+key_part->offset = 5
+key_part->field_name = b
 key_part->length = 0
 key_part->null_bit = 1
-key_part->null_offset = 1
+key_part->null_offset = 0
 
 Printing table->fields
 
 table->field[0]->field_name a
-table->field[0]->offset = 2
+table->field[0]->offset = 1
 table->field[0]->field_length = 4
-table->field[0]->null_pos wrt to record 0 = 0
-table->field[0]->null_bit_pos = 1
+table->field[0]->null_pos wrt to record 0 = -1276691232
+table->field[0]->null_bit_pos = 0
 
 table->field[1]->field_name b
-table->field[1]->offset = 6
-table->field[1]->field_length = 4
+table->field[1]->offset = 5
+table->field[1]->field_length = 10
 table->field[1]->null_pos wrt to record 0 = 0
-table->field[1]->null_bit_pos = 2
+table->field[1]->null_bit_pos = 1
 
 table->field[2]->field_name c
-table->field[2]->offset = 10
-table->field[2]->field_length = 4
-table->field[2]->null_pos wrt to record 0 = 0
-table->field[2]->null_bit_pos = 4
+table->field[2]->offset = 15
+table->field[2]->field_length = 10
+table->field[2]->null_pos wrt to record 0 = -1276691232
+table->field[2]->null_bit_pos = 0
 
-table->field[3]->field_name d
-table->field[3]->offset = 14
-table->field[3]->field_length = 4
+table->field[3]->field_name DB_ROW_HASH_1
+table->field[3]->offset = 25
+table->field[3]->field_length = 8
 table->field[3]->null_pos wrt to record 0 = 0
-table->field[3]->null_bit_pos = 8
+table->field[3]->null_bit_pos = 2
 
-table->field[4]->field_name e
-table->field[4]->offset = 18
-table->field[4]->field_length = 4
-table->field[4]->null_pos wrt to record 0 = 0
-table->field[4]->null_bit_pos = 16
-
-table->field[5]->field_name f
-table->field[5]->offset = 22
-table->field[5]->field_length = 4
-table->field[5]->null_pos wrt to record 0 = 0
-table->field[5]->null_bit_pos = 32
-
-table->field[6]->field_name g
-table->field[6]->offset = 26
-table->field[6]->field_length = 4
-table->field[6]->null_pos wrt to record 0 = 0
-table->field[6]->null_bit_pos = 64
-
-table->field[7]->field_name i
-table->field[7]->offset = 30
-table->field[7]->field_length = 10
-table->field[7]->null_pos wrt to record 0 = 0
-table->field[7]->null_bit_pos = 128
-
-table->field[8]->field_name j
-table->field[8]->offset = 40
-table->field[8]->field_length = 10
-table->field[8]->null_pos wrt to record 0 = 1
-table->field[8]->null_bit_pos = 1
-
-table->field[9]->field_name DB_ROW_HASH_1
-table->field[9]->offset = 50
-table->field[9]->field_length = 8
-table->field[9]->null_pos wrt to record 0 = 1
-table->field[9]->null_bit_pos = 2
-
-table->field[10]->field_name DB_ROW_HASH_2
-table->field[10]->offset = 58
-table->field[10]->field_length = 8
-table->field[10]->null_pos wrt to record 0 = 1
-table->field[10]->null_bit_pos = 4
+table->field[4]->field_name DB_ROW_HASH_2
+table->field[4]->offset = 33
+table->field[4]->field_length = 8
+table->field[4]->null_pos wrt to record 0 = -1276691232
+table->field[4]->null_bit_pos = 0
 
 SET debug_dbug="";
 drop table t1;
@@ -500,75 +485,6 @@ table->field[3]->offset = 13
 table->field[3]->field_length = 8
 table->field[3]->null_pos wrt to record 0 = 0
 table->field[3]->null_bit_pos = 16
-
-SET debug_dbug="";
-drop table t1;
-##Using hash but with memory engine so no long unique column
-SET debug_dbug="d,print_long_unique_internal_state";
-create table t1(a int ,b int , c int,  unique(a, b, c) using hash) engine=memory;
-Warnings:
-Note	1	Printing Table state, It will print table fields, fields->offset,field->null_bit, field->null_pos and key_info ... 
-
-Printing  Table  keyinfo
-
-table->s->reclength 13
-table->s->fields 3
-
-table->key_info[0] user_defined_key_parts = 3
-table->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 0
-table->key_info[0] flags & HA_NOSAME = 1
-
-table->s->key_info[0] user_defined_key_parts = 3
-table->s->key_info[0] algorithm == HA_KEY_ALG_LONG_HASH = 0
-table->s->key_info[0] flags & HA_NOSAME = 1
-
-Printing table->key_info->key_part[0] info
-key_part->offset = 1
-key_part->field_name = a
-key_part->length = 4
-key_part->null_bit = 2
-key_part->null_offset = 0
-
-Printing share->key_info->key_part[0] info
-key_part->offset = 1
-key_part->field_name = a
-key_part->length = 4
-key_part->null_bit = 2
-key_part->null_offset = 0
-
-Printing share->key_info->key_part[1] info
-key_part->offset = 5
-key_part->field_name = b
-key_part->length = 4
-key_part->null_bit = 4
-key_part->null_offset = 0
-
-Printing share->key_info->key_part[2] info
-key_part->offset = 9
-key_part->field_name = c
-key_part->length = 4
-key_part->null_bit = 8
-key_part->null_offset = 0
-
-Printing table->fields
-
-table->field[0]->field_name a
-table->field[0]->offset = 1
-table->field[0]->field_length = 4
-table->field[0]->null_pos wrt to record 0 = 0
-table->field[0]->null_bit_pos = 2
-
-table->field[1]->field_name b
-table->field[1]->offset = 5
-table->field[1]->field_length = 4
-table->field[1]->null_pos wrt to record 0 = 0
-table->field[1]->null_bit_pos = 4
-
-table->field[2]->field_name c
-table->field[2]->offset = 9
-table->field[2]->field_length = 4
-table->field[2]->null_pos wrt to record 0 = 0
-table->field[2]->null_bit_pos = 8
 
 SET debug_dbug="";
 drop table t1;

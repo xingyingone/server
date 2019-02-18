@@ -446,7 +446,7 @@ show create table t2;
 insert into t2 values(1,1);
 insert into t2 values(2,1);
 drop table t2;
---echo #not null test //todo solve warnings
+--echo #not null test
 create table t1(a blob unique not null);
 desc t1;
 show create table t1;
@@ -474,8 +474,38 @@ drop table t1;
 --echo #partition
 --error ER_BLOB_FIELD_IN_PART_FUNC_ERROR
 create table t1(a blob unique) partition by hash(a);
---echo #key length > 2^15 -1
---error ER_TOO_LONG_KEY
-create table t1(a blob, unique(a(100001)));
+--echo #key length > 2^16 -1
+--error ER_TOO_LONG_HASH_KEYSEG
+create table t1(a blob, unique(a(65536)));
+create table t1(a blob, unique(a(65535)));
+show create table t1;
+drop table t1;
+
+--echo #64 indexes
+--let $create_table=create table t1 (
+--let $insert_data_1=insert into t1 values(
+--let $insert_data_2=insert into t1 values(
+--let $count= 63
+--let $index= 0
+while ($count)
+{
+  --let $create_table=$create_table a$count blob unique,
+  --let $insert_data_1=$insert_data_1 $count,
+  --let $insert_data_2=$insert_data_2 $index,
+  --dec $count
+  --inc $index
+}
+--let $create_table=$create_table a blob unique);
+--let $insert_data_1=$insert_data_1 0);
+--let $insert_data_2=$insert_data_2 63);
+
+--eval $create_table
+--eval $insert_data_1
+--error ER_DUP_ENTRY
+--eval $insert_data_1
+--eval $insert_data_2
+--error ER_DUP_ENTRY
+--eval $insert_data_2
+drop table t1;
 
 set @@GLOBAL.max_allowed_packet= @allowed_packet;

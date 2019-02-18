@@ -3310,6 +3310,56 @@ int mysql_add_invisible_field(THD *thd, List<Create_field> * field_list,
   return 0;
 }
 
+#define LONG_HASH_FIELD_NAME_LENGTH 30
+static inline void make_long_hash_field_name(LEX_CSTRING *buf, uint num)
+{
+  buf->length= my_snprintf((char *)buf->str,
+          LONG_HASH_FIELD_NAME_LENGTH, "DB_ROW_HASH_%u", num);
+}
+/**
+  Add fully invisible hash field to table in case of long
+  unique column
+  @param  thd           Thread Context.
+  @param  create_list   List of table fields.
+  @param  cs            Field Charset
+  @param  key_info      current long unique key info
+*/
+static Create_field * add_hash_field(THD * thd, List<Create_field> *create_list,
+                           CHARSET_INFO *cs, KEY *key_info)
+{
+  List_iterator<Create_field> it(*create_list);
+  Create_field *dup_field, *cf= new (thd->mem_root) Create_field();
+  cf->flags|= UNSIGNED_FLAG | LONG_UNIQUE_HASH_FIELD;
+  cf->charset= cs;
+  cf->decimals= 0;
+  cf->length= cf->char_length= cf->pack_length= HA_HASH_FIELD_LENGTH;
+  cf->invisible= INVISIBLE_FULL;
+  cf->pack_flag|= FIELDFLAG_MAYBE_NULL;
+  uint num= 1;
+  LEX_CSTRING field_name;
+  field_name.str= (char *)thd->alloc(LONG_HASH_FIELD_NAME_LENGTH);
+  make_long_hash_field_name(&field_name, num);
+  /*
+    Check for collisions
+   */
+  while ((dup_field= it++))
+  {
+    if (!my_strcasecmp(system_charset_info, field_name.str, dup_field->field_name.str))
+    {
+      num++;
+      make_long_hash_field_name(&field_name, num);
+      it.rewind();
+    }
+  }
+  it.rewind();
+  cf->field_name= field_name;
+  cf->set_handler(&type_handler_longlong);
+  key_info->algorithm= HA_KEY_ALG_LONG_HASH;
+  create_list->push_back(cf,thd->mem_root);
+  return cf;
+}
+
+
 Key *
 mysql_add_invisible_index(THD *thd, List<Key> *key_list,
         LEX_CSTRING* field_name, enum Key::Keytype type)
@@ -4065,9 +4115,9 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       }
       /* We can not store key_part_length more then 2^16 - 1 in frm
          So we will simply make it zero */
-      if (is_hash_field_needed && column->length > (2<<15) - 1)
+      if (is_hash_field_needed && column->length > (1<<16) - 1)
       {
-	    my_error(ER_TOO_LONG_KEY, MYF(0), file->max_key_length());
+	    my_error(ER_TOO_LONG_HASH_KEYSEG, MYF(0));
 	    DBUG_RETURN(TRUE);
 	  }
       else
@@ -4134,20 +4184,34 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       DBUG_RETURN(TRUE);
     }
 
-    if (is_hash_field_needed)
+    if (is_hash_field_needed &&
+            key_info->algorithm != HA_KEY_ALG_UNDEF &&
+            key_info->algorithm != HA_KEY_ALG_HASH )
     {
-      if (key_info->algorithm != HA_KEY_ALG_UNDEF &&
-              key_info->algorithm != HA_KEY_ALG_HASH )
+	  my_error(ER_TOO_LONG_KEY, MYF(0), file->max_key_length());
+	  DBUG_RETURN(TRUE);
+    }
+    if (is_hash_field_needed ||
+            (key_info->algorithm == HA_KEY_ALG_HASH &&
+             create_info->db_type->flags))
+    {
+      Create_field *hash_fld= add_hash_field(thd, &alter_info->create_list,
+                       create_info->default_table_charset,
+                       key_info);
+      hash_fld->offset= record_offset;
+      record_offset+= hash_fld->pack_length;
+      if (key_info->flags & HA_NULL_PART_KEY)
+        null_fields++;
+      else
       {
-	    my_error(ER_TOO_LONG_KEY, MYF(0), file->max_key_length());
-	    DBUG_RETURN(TRUE);
+        hash_fld->flags|= NOT_NULL_FLAG;
+        hash_fld->pack_flag&= ~FIELDFLAG_MAYBE_NULL;
       }
-      key_info->algorithm= HA_KEY_ALG_LONG_HASH;
     }
    //  If user forces hash index for storage engine other then memory
-    else if (key_info->algorithm == HA_KEY_ALG_HASH &&
-              create_info->db_type->db_type != DB_TYPE_HEAP)
-      key_info->algorithm= HA_KEY_ALG_LONG_HASH;
+//    else if (key_info->algorithm == HA_KEY_ALG_HASH &&
+  //            create_info->db_type->db_type != DB_TYPE_HEAP)
+    //  key_info->algorithm= HA_KEY_ALG_LONG_HASH;
     if (validate_comment_length(thd, &key->key_create_info.comment,
                                 INDEX_COMMENT_MAXLEN,
                                 ER_TOO_LONG_INDEX_COMMENT,
@@ -10311,8 +10375,6 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
   to->s->default_fields= 0;
   for (Field **ptr=to->field ; *ptr ; ptr++)
   {
-    if ((*ptr)->flags & LONG_UNIQUE_HASH_FIELD)
-      continue;
     def=it++;
     if (def->field)
     {
@@ -10536,23 +10598,14 @@ copy_data_between_tables(THD *thd, TABLE *from, TABLE *to,
           if ((int) key_nr >= 0)
           {
             const char *err_msg= ER_THD(thd, ER_DUP_ENTRY_WITH_KEY_NAME);
-            KEY *long_key= NULL;
             if (key_nr == 0 && to->s->keys > 0 &&
                 (to->key_info[0].key_part[0].field->flags &
                  AUTO_INCREMENT_FLAG))
               err_msg= ER_THD(thd, ER_DUP_ENTRY_AUTOINCREMENT_CASE);
-            if (key_nr <= to->s->keys && to->key_info[key_nr].algorithm
-                    == HA_KEY_ALG_LONG_HASH)
-            {
-              long_key= to->key_info + key_nr;
-                setup_keyinfo_hash(long_key);
-            }
             print_keydup_error(to,
                                key_nr >= to->s->keys ? NULL :
                                    &to->key_info[key_nr],
                                err_msg, MYF(0));
-            if (long_key)
-              re_setup_keyinfo_hash(long_key);
           }
           else
             to->file->print_error(error, MYF(0));
