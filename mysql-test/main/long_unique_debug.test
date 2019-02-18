@@ -85,8 +85,8 @@ create table t1(a int ,b int , c int,  unique(a, b, c) using hash);
 SET debug_dbug="";
 drop table t1;
 
-#--echo ##Using hash but with memory engine so no long unique column
-#SET debug_dbug="d,print_long_unique_internal_state";
-#create table t1(a int ,b int , c int,  unique(a, b, c) using hash) engine=memory;
-#SET debug_dbug="";
-#drop table t1;
+--echo ##Using hash but with memory engine so no long unique column
+SET debug_dbug="d,print_long_unique_internal_state";
+create table t1(a int ,b int , c int,  unique(a, b, c) using hash) engine=memory;
+SET debug_dbug="";
+drop table t1;

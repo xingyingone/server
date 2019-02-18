@@ -144,7 +144,6 @@ enum enum_alter_inplace_result {
 #define HA_PRIMARY_KEY_REQUIRED_FOR_POSITION (1ULL << 16) 
 #define HA_CAN_RTREEKEYS       (1ULL << 17)
 #define HA_NOT_DELETE_WITH_CACHE (1ULL << 18) /* unused */
-#define HA_CAN_HASH_KEYS        (1ULL << 19)
 /*
   The following is we need to a primary key to delete (and update) a row.
   If there is no primary key, all columns needs to be read on update and delete
@@ -319,6 +318,9 @@ enum enum_alter_inplace_result {
 
 /* Safe for online backup */
 #define HA_CAN_ONLINE_BACKUPS (1ULL << 56)
+
+/* Support native hash index */
+#define HA_CAN_HASH_KEYS        (1ULL << 57)
 
 /* bits in index_flags(index_number) for what you can do with index */
 #define HA_READ_NEXT            1       /* TODO really use this flag */

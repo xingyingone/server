@@ -4193,7 +4193,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
     }
     if (is_hash_field_needed ||
             (key_info->algorithm == HA_KEY_ALG_HASH &&
-             create_info->db_type->flags))
+             !(file->ha_table_flags() & HA_CAN_HASH_KEYS )))
     {
       Create_field *hash_fld= add_hash_field(thd, &alter_info->create_list,
                        create_info->default_table_charset,
@@ -4208,10 +4208,6 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
         hash_fld->pack_flag&= ~FIELDFLAG_MAYBE_NULL;
       }
     }
-   //  If user forces hash index for storage engine other then memory
-//    else if (key_info->algorithm == HA_KEY_ALG_HASH &&
-  //            create_info->db_type->db_type != DB_TYPE_HEAP)
-    //  key_info->algorithm= HA_KEY_ALG_LONG_HASH;
     if (validate_comment_length(thd, &key->key_create_info.comment,
                                 INDEX_COMMENT_MAXLEN,
                                 ER_TOO_LONG_INDEX_COMMENT,
