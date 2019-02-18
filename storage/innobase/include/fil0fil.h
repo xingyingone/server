@@ -425,6 +425,9 @@ struct fil_space_t {
 	@return whether the flags are correct. */
 	static bool is_valid_flags(ulint flags, bool is_ibd)
 	{
+		DBUG_EXECUTE_IF("fsp_flags_is_valid_failure",
+				return false;);
+
 		if (full_crc32(flags)) {
 			return is_fcrc32_valid_flags(flags);
 		}

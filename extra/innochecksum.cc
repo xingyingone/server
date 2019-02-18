@@ -281,6 +281,18 @@ static void init_page_size(const byte* buf)
 	const unsigned	flags = mach_read_from_4(buf + FIL_PAGE_DATA
 						 + FSP_SPACE_FLAGS);
 
+	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
+		srv_page_size = fil_space_t::logical_size(flags);
+		physical_page_size = srv_page_size;
+		return;
+	}
+
+	const ulong	ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
+
+	srv_page_size_shift = ssize
+		? UNIV_ZIP_SIZE_SHIFT_MIN - 1 + ssize
+		: UNIV_PAGE_SIZE_SHIFT_ORIG;
+
 	srv_page_size = fil_space_t::logical_size(flags);
 	physical_page_size = fil_space_t::physical_size(flags);
 }
@@ -571,7 +583,8 @@ static bool update_checksum(byte* page, ulint flags)
 	}
 
 	const bool use_full_crc32 = fil_space_t::full_crc32(flags);
-	const bool iscompressed = fil_space_t::is_compressed(flags);
+	const bool iscompressed = fil_space_t::zip_size(flags);
+
 	memcpy(stored1, page + FIL_PAGE_SPACE_OR_CHKSUM, 4);
 	memcpy(stored2, page + physical_page_size -
 	       FIL_PAGE_END_LSN_OLD_CHKSUM, 4);
