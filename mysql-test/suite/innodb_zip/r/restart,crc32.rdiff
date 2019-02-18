@@ -1,0 +1,152 @@
+214,215c214,215
+< test/t1_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t1_restart.ibd
+< test/t2_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t2_restart.ibd
+---
+> test/t1_restart	Single	DEFAULT	DEFAULT	Compact or Redundant	MYSQLD_DATADIR/test/t1_restart.ibd
+> test/t2_restart	Single	DEFAULT	DEFAULT	Compact or Redundant	MYSQLD_DATADIR/test/t2_restart.ibd
+217,218c217,218
+< test/t4_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t4_restart.ibd
+< test/t5_restart	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t5_restart.ibd
+---
+> test/t4_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t4_restart.ibd
+> test/t5_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t5_restart.ibd
+222,225c222,225
+< test/t7_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s0.ibd
+< test/t7_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s1.ibd
+< test/t7_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s2.ibd
+< test/t7_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s3.ibd
+---
+> test/t7_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s0.ibd
+> test/t7_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s1.ibd
+> test/t7_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s2.ibd
+> test/t7_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s3.ibd
+398,399c398,399
+< test/t1_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t1_restart.ibd
+< test/t2_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t2_restart.ibd
+---
+> test/t1_restart	Single	DEFAULT	DEFAULT	Compact or Redundant	MYSQLD_DATADIR/test/t1_restart.ibd
+> test/t2_restart	Single	DEFAULT	DEFAULT	Compact or Redundant	MYSQLD_DATADIR/test/t2_restart.ibd
+401,402c401,402
+< test/t4_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t4_restart.ibd
+< test/t5_restart	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t5_restart.ibd
+---
+> test/t4_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t4_restart.ibd
+> test/t5_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t5_restart.ibd
+406,409c406,409
+< test/t7_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s0.ibd
+< test/t7_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s1.ibd
+< test/t7_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s2.ibd
+< test/t7_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s3.ibd
+---
+> test/t7_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s0.ibd
+> test/t7_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s1.ibd
+> test/t7_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s2.ibd
+> test/t7_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s3.ibd
+421c421
+< test/t4_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t4_restart.ibd
+---
+> test/t4_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t4_restart.ibd
+424,426c424,426
+< test/t7_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s0.ibd
+< test/t7_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s1.ibd
+< test/t5_restart	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t5_restart.ibd
+---
+> test/t7_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s0.ibd
+> test/t7_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s1.ibd
+> test/t5_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t5_restart.ibd
+428,429c428,429
+< test/t7_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s2.ibd
+< test/t7_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s3.ibd
+---
+> test/t7_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s2.ibd
+> test/t7_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s3.ibd
+525c525
+< test/t4_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t4_restart.ibd
+---
+> test/t4_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t4_restart.ibd
+528,530c528,530
+< test/t7_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s0.ibd
+< test/t7_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s1.ibd
+< test/t5_restart	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t5_restart.ibd
+---
+> test/t7_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s0.ibd
+> test/t7_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p0#sp#s1.ibd
+> test/t5_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t5_restart.ibd
+532,533c532,533
+< test/t7_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s2.ibd
+< test/t7_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s3.ibd
+---
+> test/t7_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s2.ibd
+> test/t7_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t7_restart#p#p1#sp#s3.ibd
+626c626
+< test/t4_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t4_restart.ibd
+---
+> test/t4_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t4_restart.ibd
+629,631c629,631
+< test/t77_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p0#sp#s0.ibd
+< test/t77_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p0#sp#s1.ibd
+< test/t55_restart	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t55_restart.ibd
+---
+> test/t77_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p0#sp#s0.ibd
+> test/t77_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p0#sp#s1.ibd
+> test/t55_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t55_restart.ibd
+633,634c633,634
+< test/t77_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p1#sp#s2.ibd
+< test/t77_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p1#sp#s3.ibd
+---
+> test/t77_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p1#sp#s2.ibd
+> test/t77_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p1#sp#s3.ibd
+723c723
+< test/t4_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t4_restart.ibd
+---
+> test/t4_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t4_restart.ibd
+726,728c726,728
+< test/t77_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p0#sp#s0.ibd
+< test/t77_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p0#sp#s1.ibd
+< test/t55_restart	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t55_restart.ibd
+---
+> test/t77_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p0#sp#s0.ibd
+> test/t77_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p0#sp#s1.ibd
+> test/t55_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t55_restart.ibd
+730,731c730,731
+< test/t77_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p1#sp#s2.ibd
+< test/t77_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p1#sp#s3.ibd
+---
+> test/t77_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p1#sp#s2.ibd
+> test/t77_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t77_restart#p#p1#sp#s3.ibd
+856c856
+< test/t4_restart	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/new_dir/test/t4_restart.ibd
+---
+> test/t4_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/new_dir/test/t4_restart.ibd
+859,861c859,861
+< test/t77_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/new_dir/test/t77_restart#p#p0#sp#s0.ibd
+< test/t77_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/new_dir/test/t77_restart#p#p0#sp#s1.ibd
+< test/t55_restart	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/new_dir/test/t55_restart.ibd
+---
+> test/t77_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/new_dir/test/t77_restart#p#p0#sp#s0.ibd
+> test/t77_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/new_dir/test/t77_restart#p#p0#sp#s1.ibd
+> test/t55_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/new_dir/test/t55_restart.ibd
+863,864c863,864
+< test/t77_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/new_dir/test/t77_restart#p#p1#sp#s2.ibd
+< test/t77_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	NULL	MYSQL_TMP_DIR/new_dir/test/t77_restart#p#p1#sp#s3.ibd
+---
+> test/t77_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/new_dir/test/t77_restart#p#p1#sp#s2.ibd
+> test/t77_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	Dynamic	MYSQL_TMP_DIR/new_dir/test/t77_restart#p#p1#sp#s3.ibd
+993c993
+< test/t4_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t4_restart.ibd
+---
+> test/t4_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t4_restart.ibd
+996,998c996,998
+< test/t77_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t77_restart#p#p0#sp#s0.ibd
+< test/t77_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t77_restart#p#p0#sp#s1.ibd
+< test/t55_restart	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t55_restart.ibd
+---
+> test/t77_restart#p#p0#sp#s0	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t77_restart#p#p0#sp#s0.ibd
+> test/t77_restart#p#p0#sp#s1	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t77_restart#p#p0#sp#s1.ibd
+> test/t55_restart	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t55_restart.ibd
+1000,1001c1000,1001
+< test/t77_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t77_restart#p#p1#sp#s2.ibd
+< test/t77_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	NULL	MYSQLD_DATADIR/test/t77_restart#p#p1#sp#s3.ibd
+---
+> test/t77_restart#p#p1#sp#s2	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t77_restart#p#p1#sp#s2.ibd
+> test/t77_restart#p#p1#sp#s3	Single	DEFAULT	DEFAULT	Dynamic	MYSQLD_DATADIR/test/t77_restart#p#p1#sp#s3.ibd

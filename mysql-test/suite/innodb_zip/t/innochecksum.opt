@@ -1,2 +1,1 @@
 --skip-innodb-doublewrite
---innodb-checksum-algorithm=crc32
