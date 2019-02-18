@@ -505,7 +505,7 @@ bool fil_node_t::read_page0(bool first)
 	const ulint free_limit = fsp_header_get_field(page, FSP_FREE_LIMIT);
 	const ulint free_len = flst_get_len(FSP_HEADER_OFFSET + FSP_FREE
 					    + page);
-	if (!fsp_flags_is_valid(flags, space->id)) {
+	if (!fil_space_t::is_valid_flags(flags, space->id)) {
 		ulint cflags = fsp_flags_convert_from_101(flags);
 		if (cflags == ULINT_UNDEFINED
 		    || (cflags ^ space->flags) & ~FSP_FLAGS_MEM_MASK) {
@@ -1303,7 +1303,7 @@ fil_space_create(
 	fil_space_t*	space;
 
 	ut_ad(fil_system.is_initialised());
-	ut_ad(fsp_flags_is_valid(flags & ~FSP_FLAGS_MEM_MASK, id));
+	ut_ad(fil_space_t::is_valid_flags(flags & ~FSP_FLAGS_MEM_MASK, id));
 	ut_ad(purpose == FIL_TYPE_LOG
 	      || srv_page_size == UNIV_PAGE_SIZE_ORIG || flags != 0);
 
@@ -2004,7 +2004,7 @@ fil_op_write_log(
 	ulint		len;
 
 	ut_ad(first_page_no == 0 || type == MLOG_FILE_CREATE2);
-	ut_ad(fsp_flags_is_valid(flags, space_id));
+	ut_ad(fil_space_t::is_valid_flags(flags, space_id));
 
 	/* fil_name_parse() requires that there be at least one path
 	separator and that the file path end with ".ibd". */
@@ -2955,7 +2955,7 @@ fil_ibd_create(
 	ut_ad(!srv_read_only_mode);
 	ut_a(space_id < SRV_LOG_SPACE_FIRST_ID);
 	ut_a(size >= FIL_IBD_FILE_INITIAL_SIZE);
-	ut_a(fsp_flags_is_valid(flags & ~FSP_FLAGS_MEM_MASK, space_id));
+	ut_a(fil_space_t::is_valid_flags(flags & ~FSP_FLAGS_MEM_MASK, space_id));
 
 	/* Create the subdirectories in the path, if they are
 	not there already. */
@@ -3219,7 +3219,7 @@ corrupted:
 		return NULL;
 	}
 
-	ut_ad(fsp_flags_is_valid(flags & ~FSP_FLAGS_MEM_MASK, id));
+	ut_ad(fil_space_t::is_valid_flags(flags & ~FSP_FLAGS_MEM_MASK, id));
 	df_default.init(tablename.m_name, flags);
 	df_dict.init(tablename.m_name, flags);
 	df_remote.init(tablename.m_name, flags);
@@ -3886,7 +3886,7 @@ fil_file_readdir_next_file(
 void fsp_flags_try_adjust(fil_space_t* space, ulint flags)
 {
 	ut_ad(!srv_read_only_mode);
-	ut_ad(fsp_flags_is_valid(flags, space->id));
+	ut_ad(fil_space_t::is_valid_flags(flags, space->id));
 	if (!space->size && (space->purpose != FIL_TYPE_TABLESPACE
 			     || !fil_space_get_size(space->id))) {
 		return;

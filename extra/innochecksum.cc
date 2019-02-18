@@ -281,33 +281,8 @@ static void init_page_size(const byte* buf)
 	const unsigned	flags = mach_read_from_4(buf + FIL_PAGE_DATA
 						 + FSP_SPACE_FLAGS);
 
-	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
-		switch (FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags)) {
-		case 3: { srv_page_size = 4096; break; }
-		case 4: { srv_page_size = 8192; break; }
-		case 5: { srv_page_size = 16384; break; }
-		case 6: { srv_page_size = 32768; break; }
-		case 7: { srv_page_size = 65536; break; }
-		}
-
-		physical_page_size = srv_page_size;
-		return;
-	}
-
-	const ulong	ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
-
-	srv_page_size_shift = ssize
-		? UNIV_ZIP_SIZE_SHIFT_MIN - 1 + ssize
-		: UNIV_PAGE_SIZE_SHIFT_ORIG;
-
-	srv_page_size = 1U << srv_page_size_shift;
-	ulint zip_size = FSP_FLAGS_GET_ZIP_SSIZE(flags);
-	if (zip_size) {
-		zip_size = (UNIV_ZIP_SIZE_MIN >> 1) << zip_size;
-		physical_page_size = zip_size;
-	} else {
-		physical_page_size = srv_page_size;
-	}
+	srv_page_size = fil_space_t::logical_size(flags);
+	physical_page_size = fil_space_t::physical_size(flags);
 }
 
 #ifdef _WIN32
@@ -460,18 +435,9 @@ is_page_corrupted(
 	uint key_version = buf_page_get_key_version(buf, flags);
 	ulint space_id = mach_read_from_4(
 		buf + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-	ulint zip_size = 0;
-	ulint is_compressed = false;
-	bool  use_full_crc32 = FSP_FLAGS_FCHKSUM_HAS_MARKER(flags);
-
-	if (!use_full_crc32) {
-		zip_size = FSP_FLAGS_GET_ZIP_SSIZE(flags);
-		if (zip_size) {
-			zip_size = (UNIV_ZIP_SIZE_MIN >> 1) << zip_size;
-		}
-
-		is_compressed = FSP_FLAGS_HAS_PAGE_COMPRESSION(flags);
-	}
+	ulint zip_size = fil_space_t::zip_size(flags);
+	ulint is_compressed = fil_space_t::is_compressed(flags);
+	const bool use_full_crc32 = fil_space_t::full_crc32(flags);
 
 	/* We can't trust only a page type, thus we take account
 	also fsp_flags or crypt_data on page 0 */
@@ -604,10 +570,8 @@ static bool update_checksum(byte* page, ulint flags)
 		return (false);
 	}
 
-	const bool use_full_crc32 = FSP_FLAGS_FCHKSUM_HAS_MARKER(flags);
-	const bool iscompressed = !use_full_crc32
-		&& FSP_FLAGS_GET_ZIP_SSIZE(flags);
-
+	const bool use_full_crc32 = fil_space_t::full_crc32(flags);
+	const bool iscompressed = fil_space_t::is_compressed(flags);
 	memcpy(stored1, page + FIL_PAGE_SPACE_OR_CHKSUM, 4);
 	memcpy(stored2, page + physical_page_size -
 	       FIL_PAGE_END_LSN_OLD_CHKSUM, 4);
@@ -1508,8 +1472,7 @@ rewrite_checksum(
 	bool		is_encrypted,
 	ulint		flags)
 {
-	bool is_compressed = !FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)
-		&& FSP_FLAGS_HAS_PAGE_COMPRESSION(flags);
+	bool is_compressed = fil_space_t::is_compressed(flags);
 
 	/* Rewrite checksum. Note that for encrypted and
 	page compressed tables this is not currently supported. */

@@ -7990,7 +7990,7 @@ i_s_dict_fill_sys_tablespaces(
 			      is_system_tablespace(space)
 			      ? "System" : "Single"));
 
-	ulint cflags = fsp_flags_is_valid(flags, space)
+	ulint cflags = fil_space_t::is_valid_flags(flags, space)
 		? flags : fsp_flags_convert_from_101(flags);
 	if (cflags == ULINT_UNDEFINED) {
 		fields[SYS_TABLESPACES_PAGE_SIZE]->set_null();

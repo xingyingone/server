@@ -679,7 +679,7 @@ bad_doublewrite:
 		if (page_no == 0) {
 			/* Check the FSP_SPACE_FLAGS. */
 			ulint flags = fsp_header_get_flags(page);
-			if (!fsp_flags_is_valid(flags, space_id)
+			if (!fil_space_t::is_valid_flags(flags, space_id)
 			    && fsp_flags_convert_from_101(flags)
 			    == ULINT_UNDEFINED) {
 				ib::warn() << "Ignoring a doublewrite copy"

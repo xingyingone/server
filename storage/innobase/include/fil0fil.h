@@ -71,8 +71,11 @@ fil_type_is_data(
 
 struct fil_node_t;
 
+#endif
+
 /** Tablespace or log data space */
 struct fil_space_t {
+#ifndef UNIV_INNOCHECKSUM
 	ulint		id;	/*!< space id */
 	hash_node_t	hash;	/*!< hash chain node */
 	char*		name;	/*!< Tablespace name */
@@ -118,9 +121,6 @@ struct fil_space_t {
 				/*!< recovered tablespace size in pages;
 				0 if no size change was read from the redo log,
 				or if the size change was implemented */
-	ulint		flags;	/*!< FSP_SPACE_FLAGS and FSP_FLAGS_MEM_ flags;
-				see fsp0types.h,
-				fsp_flags_is_valid() */
 	ulint		n_reserved_extents;
 				/*!< number of reserved free extents for
 				ongoing operations like B-tree page split */
@@ -255,6 +255,10 @@ struct fil_space_t {
 	void release_for_io() { ut_ad(pending_io()); n_pending_ios--; }
 	/** @return whether I/O is pending */
 	bool pending_io() const { return n_pending_ios; }
+#endif
+	/** FSP_SPACE_FLAGS and FSP_FLAGS_MEM_ flags;
+	check fsp0types.h to more info about flags. */
+	ulint		flags;
 
 	/** Determine if full_crc32 is used for a data file
 	@param[in]	flags	tablespace flags (FSP_FLAGS)
@@ -399,8 +403,91 @@ struct fil_space_t {
 			? is_flags_full_crc32_equal(flags, expected)
 			: is_flags_non_full_crc32_equal(flags, expected);
 	}
+	/** Validate the tablespace flags for full crc32 format.
+	@param[in]	flags	the content of FSP_SPACE_FLAGS
+	@return whether the flags are correct in full crc32 format */
+	static bool is_fcrc32_valid_flags(ulint flags)
+	{
+		ut_ad(flags & FSP_FLAGS_FCHKSUM_MASK_MARKER);
+		const ulint page_ssize = physical_size(flags);
+		if (page_ssize < 3 || page_ssize & 8) {
+			return false;
+		}
+
+		flags >>= FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO;
+
+		return flags <= PAGE_ALGORITHM_LAST;
+	}
+	/** Validate the tablespace flags.
+	@param[in]	flags	content of FSP_SPACE_FLAGS
+	@param[in]	is_ibd	whether this is an .ibd file
+				(not system tablespace)
+	@return whether the flags are correct. */
+	static bool is_valid_flags(ulint flags, bool is_ibd)
+	{
+		if (full_crc32(flags)) {
+			return is_fcrc32_valid_flags(flags);
+		}
+
+		if (flags == 0) {
+			return true;
+		}
+
+		if (flags & ~FSP_FLAGS_MASK) {
+			return false;
+		}
+
+		if ((flags & (FSP_FLAGS_MASK_POST_ANTELOPE
+			      | FSP_FLAGS_MASK_ATOMIC_BLOBS))
+		    == FSP_FLAGS_MASK_ATOMIC_BLOBS) {
+			/* If the "atomic blobs" flag (indicating
+			ROW_FORMAT=DYNAMIC or ROW_FORMAT=COMPRESSED) flag
+			is set, then the "post Antelope"
+			(ROW_FORMAT!=REDUNDANT) flag must also be set. */
+			return false;
+		}
+
+		/* Bits 10..14 should be 0b0000d where d is the DATA_DIR flag
+		of MySQL 5.6 and MariaDB 10.0, which we ignore.
+		In the buggy FSP_SPACE_FLAGS written by MariaDB 10.1.0 to 10.1.20,
+		bits 10..14 would be nonzero 0bsssaa where sss is
+		nonzero PAGE_SSIZE (3, 4, 6, or 7)
+		and aa is ATOMIC_WRITES (not 0b11). */
+		if (FSP_FLAGS_GET_RESERVED(flags) & ~1U) {
+			return false;
+		}
+
+		const ulint	ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
+		if (ssize == 1 || ssize == 2 || ssize == 5 || ssize & 8) {
+			/* the page_size is not between 4k and 64k;
+			16k should be encoded as 0, not 5 */
+			return false;
+		}
+
+		const ulint     zssize = FSP_FLAGS_GET_ZIP_SSIZE(flags);
+		if (zssize == 0) {
+			/* not ROW_FORMAT=COMPRESSED */
+		} else if (zssize > (ssize ? ssize : 5)) {
+			/* Invalid KEY_BLOCK_SIZE */
+			return false;
+		} else if (~flags & (FSP_FLAGS_MASK_POST_ANTELOPE
+				     | FSP_FLAGS_MASK_ATOMIC_BLOBS)) {
+			/* both these flags should be set for
+			ROW_FORMAT=COMPRESSED */
+			return false;
+		}
+
+		/* The flags do look valid. But, avoid misinterpreting
+		buggy MariaDB 10.1 format flags for
+		PAGE_COMPRESSED=1 PAGE_COMPRESSION_LEVEL={0,2,3}
+		as valid-looking PAGE_SSIZE if this is known to be
+		an .ibd file and we are using the default innodb_page_size=16k. */
+		return(ssize == 0 || !is_ibd
+		       || srv_page_size != UNIV_PAGE_SIZE_ORIG);
+	}
 };
 
+#ifndef UNIV_INNOCHECKSUM
 /** Value of fil_space_t::magic_n */
 #define	FIL_SPACE_MAGIC_N	89472
 

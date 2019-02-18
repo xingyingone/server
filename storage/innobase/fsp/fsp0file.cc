@@ -343,7 +343,7 @@ Datafile::read_first_page(bool read_only_mode)
 	if (m_order == 0) {
 		m_space_id = fsp_header_get_space_id(m_first_page);
 		m_flags = fsp_header_get_flags(m_first_page);
-		if (!fsp_flags_is_valid(m_flags, m_space_id)) {
+		if (!fil_space_t::is_valid_flags(m_flags, m_space_id)) {
 			ulint cflags = fsp_flags_convert_from_101(m_flags);
 			if (cflags == ULINT_UNDEFINED) {
 				ib::error()
@@ -539,7 +539,7 @@ err_exit:
 		}
 	}
 
-	if (!fsp_flags_is_valid(m_flags, m_space_id)) {
+	if (!fil_space_t::is_valid_flags(m_flags, m_space_id)) {
 		/* Tablespace flags must be valid. */
 		error_txt = "Tablespace flags are invalid";
 		goto err_exit;
@@ -784,7 +784,7 @@ Datafile::restore_from_doublewrite()
 	ulint	flags = mach_read_from_4(
 		FSP_HEADER_OFFSET + FSP_SPACE_FLAGS + page);
 
-	if (!fsp_flags_is_valid(flags, m_space_id)) {
+	if (!fil_space_t::is_valid_flags(flags, m_space_id)) {
 		ulint cflags = fsp_flags_convert_from_101(flags);
 		if (cflags == ULINT_UNDEFINED) {
 			ib::warn()
