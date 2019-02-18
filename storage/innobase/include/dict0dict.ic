@@ -660,13 +660,6 @@ dict_tf_to_fsp_flags(ulint table_flags)
 
 		fsp_flags = 1U << FSP_FLAGS_FCHKSUM_POS_MARKER;
 		fsp_flags |= FSP_FLAGS_FCHKSUM_PAGE_SSIZE();
-
-#if 0
-		if (page_compression_level) {
-			fsp_flags |= (innodb_compression_algorithm
-				      << FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO);
-		}
-#endif
 	} else {
 		/* Adjust bit zero. */
 		fsp_flags = DICT_TF_HAS_ATOMIC_BLOBS(table_flags) ? 1 : 0;

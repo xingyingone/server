@@ -537,40 +537,6 @@ fil_parse_write_crypt_data(
 	return ptr;
 }
 
-#if 0
-/** Calculate the post encryption checksum for non full checksum algorithm
-@param[in,out]	dst_frame	page to be calculated for checksum
-@param[in]	zip_size	compressed page size
-@return page with post-encrypted checksum */
-static byte* fil_encrypt_post_non_full_checksum(
-	byte*	dst_frame,
-	ulint	zip_size,
-	bool	use_full_checksum)
-{
-	/* handle post encryption checksum */
-	ib_uint32_t checksum = 0;
-
-	if (use_full_checksum) {
-		ut_ad(zip_size == 0);
-		checksum = buf_calc_page_full_crc32(dst_frame);
-		mach_write_to_4(
-			dst_frame + srv_page_size - FIL_PAGE_FCHKSUM_CRC32,
-			checksum);
-	} else {
-		checksum = fil_crypt_calculate_checksum(zip_size, dst_frame);
-
-		/* store the post-encryption checksum after the key-version */
-		mach_write_to_4(
-			dst_frame + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION + 4,
-			checksum);
-
-		ut_ad(fil_space_verify_crypt_checksum(dst_frame, zip_size));
-	}
-
-	return dst_frame;
-}
-#endif
-
 /** Encrypt a buffer for non full checksum.
 @param[in,out]		crypt_data		Crypt data
 @param[in]		space			space_id
