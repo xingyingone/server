@@ -125,7 +125,7 @@ for (my $d = $d1; $d < $d2 + 64; $d++)
     {
 	# Replace the innodb_checksum_algorithm=crc32 checksum
 	my $ck= pack("N",
-	   	     mycrc32(substr($_, 4, 22), 0, $polynomial) ^
+		     mycrc32(substr($_, 4, 22), 0, $polynomial) ^
 		     mycrc32(substr($_, 38, $page_size - 38 - 8), 0,
 			     $polynomial));
 	substr ($_, 0, 4) = $ck;

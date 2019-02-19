@@ -83,14 +83,14 @@ ALTER TABLE t2 DISCARD TABLESPACE;
 ALTER TABLE t2 IMPORT TABLESPACE;
 --remove_file $MYSQLD_DATADIR/test/t2.cfg
 
-let $error_code = 0;
+let $error_code = ER_TABLE_SCHEMA_MISMATCH;
 
-if ($checksum_algorithm == "crc32") {
- let $error_code = ER_TABLE_SCHEMA_MISMATCH;
+if ($checksum_algorithm == "full_crc32") {
+ let $error_code = 0;
 }
 
-if ($checksum_algorithm == "strict_crc32") {
- let $error_code = ER_TABLE_SCHEMA_MISMATCH;
+if ($checksum_algorithm == "strict_full_crc32") {
+ let $error_code = 0;
 }
 
 --replace_regex /(FSP_SPACE_FLAGS=0x)[0-9a-f]+(,.*0x)[0-9a-f]+(.*)/\1*\2*\3/
