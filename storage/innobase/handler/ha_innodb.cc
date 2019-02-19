@@ -11569,7 +11569,9 @@ create_table_info_t::check_table_options()
 	for(ulint i = 0; i < m_form->s->keys; i++) {
 		const KEY* key = m_form->key_info + i;
 		if (key->flags & HA_SPATIAL && should_encrypt
-		    && options->page_compressed && srv_checksum_algorithm > 6) {
+		    && (options->page_compressed
+			|| srv_checksum_algorithm
+			< SRV_CHECKSUM_ALGORITHM_FULL_CRC32)) {
 			push_warning_printf(m_thd, Sql_condition::WARN_LEVEL_WARN,
 				HA_ERR_UNSUPPORTED,
 				"InnoDB: ENCRYPTED=ON not supported for table because "
