@@ -55,31 +55,35 @@
  DROP TABLE t1;
  affected rows: 0
  CREATE TABLE t1(f1 INT PRIMARY KEY, f2 INT NOT NULL,
-@@ -56,23 +47,6 @@
- INDEX(f1),
+@@ -57,22 +48,17 @@
  FOREIGN KEY fidx(f1) REFERENCES t1(f1))ENGINE=INNODB;
  INSERT INTO t1(f1, f2, f4, f5) VALUES(1, 2, 3, 4);
--ALTER TABLE t1 ADD INDEX idx1(f4), page_compressed=1;
+ ALTER TABLE t1 ADD INDEX idx1(f4), page_compressed=1;
 -affected rows: 1
 -info: Records: 1  Duplicates: 0  Warnings: 0
--ALTER TABLE t1 DROP INDEX idx, page_compression_level=5;
++ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: ADD INDEX. Try ALGORITHM=NOCOPY
+ ALTER TABLE t1 DROP INDEX idx, page_compression_level=5;
 -affected rows: 1
 -info: Records: 1  Duplicates: 0  Warnings: 0
--ALTER TABLE t1 ADD UNIQUE INDEX u1(f2);
++ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: DROP INDEX. Try ALGORITHM=NOCOPY
+ ALTER TABLE t1 ADD UNIQUE INDEX u1(f2);
 -affected rows: 1
 -info: Records: 1  Duplicates: 0  Warnings: 0
--ALTER TABLE t1 DROP INDEX f4, page_compression_level=9;
++ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: ADD INDEX. Try ALGORITHM=NOCOPY
+ ALTER TABLE t1 DROP INDEX f4, page_compression_level=9;
 -affected rows: 1
 -info: Records: 1  Duplicates: 0  Warnings: 0
--SET foreign_key_checks = 0;
--affected rows: 0
--ALTER TABLE t1 ADD FOREIGN KEY(f5) REFERENCES t2(f1);
++ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: DROP INDEX. Try ALGORITHM=NOCOPY
+ SET foreign_key_checks = 0;
+ affected rows: 0
+ ALTER TABLE t1 ADD FOREIGN KEY(f5) REFERENCES t2(f1);
 -affected rows: 1
 -info: Records: 1  Duplicates: 0  Warnings: 0
++ERROR 0A000: ALGORITHM=INSTANT is not supported. Reason: ADD INDEX. Try ALGORITHM=NOCOPY
  DROP TABLE t2, t1;
  affected rows: 0
  CREATE TABLE t1(f1 INT NOT NULL,
-@@ -85,27 +59,27 @@
+@@ -85,27 +71,27 @@
  INSERT INTO t1(f1, f2) VALUES(1, 1);
  # Add column at the end of the table
  ALTER TABLE t1 ADD COLUMN f4 char(100) default 'BIG WALL';
@@ -117,7 +121,7 @@
  # Column length varies
  ALTER TABLE t2 CHANGE f3 f3 VARCHAR(20);
  affected rows: 0
-@@ -113,12 +87,12 @@
+@@ -113,12 +99,12 @@
  SET foreign_key_checks = 0;
  affected rows: 0
  ALTER TABLE t3 ADD FOREIGN KEY fidx(f2) REFERENCES t2(f1);

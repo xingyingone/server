@@ -505,7 +505,7 @@ is_page_corrupted(
 			fprintf(log_file,
 				"Page " ULINTPF ":%llu may be corrupted;"
 				" key_version=%u\n",
-				space_id, cur_page_num, (uint)key_version);
+				space_id, cur_page_num, key_version);
 		}
 	} else {
 		is_corrupted = true;
