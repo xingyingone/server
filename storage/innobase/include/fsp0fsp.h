@@ -632,7 +632,7 @@ fsp_flags_convert_from_101(ulint flags)
 {
 	DBUG_EXECUTE_IF("fsp_flags_is_valid_failure",
 			return(ULINT_UNDEFINED););
-	if (flags == 0) {
+	if (flags == 0 || fil_space_t::full_crc32(flags)) {
 		return(flags);
 	}
 

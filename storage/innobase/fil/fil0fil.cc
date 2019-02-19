@@ -3903,6 +3903,12 @@ void fsp_flags_try_adjust(fil_space_t* space, ulint flags)
 		    page_id_t(space->id, 0), space->zip_size(),
 		    RW_X_LATCH, &mtr)) {
 		ulint f = fsp_header_get_flags(b->frame);
+		if (fil_space_t::full_crc32(f)) {
+			goto func_exit;
+		}
+		if (fil_space_t::is_flags_equal(f, flags)) {
+			goto func_exit;
+		}
 		/* Suppress the message if only the DATA_DIR flag to differs. */
 		if ((f ^ flags) & ~(1U << FSP_FLAGS_POS_RESERVED)) {
 			ib::warn()
@@ -3911,13 +3917,11 @@ void fsp_flags_try_adjust(fil_space_t* space, ulint flags)
 				<< "' from " << ib::hex(f)
 				<< " to " << ib::hex(flags);
 		}
-		if (f != flags) {
-			mtr.set_named_space(space);
-			mlog_write_ulint(FSP_HEADER_OFFSET
-					 + FSP_SPACE_FLAGS + b->frame,
-					 flags, MLOG_4BYTES, &mtr);
-		}
+		mtr.set_named_space(space);
+		mlog_write_ulint(FSP_HEADER_OFFSET + FSP_SPACE_FLAGS
+				 + b->frame, flags, MLOG_4BYTES, &mtr);
 	}
+func_exit:
 	mtr.commit();
 }
 
