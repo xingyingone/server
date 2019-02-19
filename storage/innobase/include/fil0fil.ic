@@ -118,7 +118,7 @@ fil_page_type_validate(
 
 		if (space && space->full_crc32()) {
 			key_version = mach_read_from_4(
-				page + FIL_PAGE_FCHKSUM_KEY_VERSION);
+				page + FIL_PAGE_FCRC32_KEY_VERSION);
 		}
 
 		/* Dump out the page info */

@@ -638,7 +638,7 @@ static byte* fil_encrypt_buf_for_full_checksum(
 	const uint size = uint(srv_page_size);
 	uint key_version = fil_crypt_get_latest_key_version(crypt_data);
 	uint srclen = size - (FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION
-			      + FIL_PAGE_FCHKSUM_CRC32);
+			      + FIL_PAGE_FCRC32_CHECKSUM);
 	const byte* src = src_frame + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION;
 	byte* dst = dst_frame + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION;
 	uint dstlen = 0;
@@ -649,7 +649,7 @@ static byte* fil_encrypt_buf_for_full_checksum(
 	memcpy(dst_frame, src_frame, FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION);
 
 	/* Write key version to the page. */
-	mach_write_to_4(dst_frame + FIL_PAGE_FCHKSUM_KEY_VERSION, key_version);
+	mach_write_to_4(dst_frame + FIL_PAGE_FCRC32_KEY_VERSION, key_version);
 
 	int rc = encryption_scheme_encrypt(src, srclen, dst, &dstlen,
 					   crypt_data, key_version,
@@ -658,7 +658,7 @@ static byte* fil_encrypt_buf_for_full_checksum(
 	ut_a(dstlen == srclen);
 
 	ib_uint32_t checksum = buf_calc_page_full_crc32(dst_frame);
-	mach_write_to_4(dst_frame + size - FIL_PAGE_FCHKSUM_CRC32, checksum);
+	mach_write_to_4(dst_frame + size - FIL_PAGE_FCRC32_CHECKSUM, checksum);
 
 	srv_stats.pages_encrypted.inc();
 
@@ -755,7 +755,7 @@ fil_space_encrypt(
 		encryption. Because lsn is one of the input for encryption. */
 		mach_write_to_8(src_frame + FIL_PAGE_LSN, lsn);
 		mach_write_to_4(
-			src_frame + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN,
+			src_frame + srv_page_size - FIL_PAGE_FCRC32_END_LSN,
 			(ulint) lsn);
 	}
 
@@ -802,7 +802,7 @@ fil_space_encrypt(
 			memcpy(tmp_mem, src, FIL_PAGE_OFFSET);
 			ut_ad(!memcmp(src, tmp_mem,
 				      (space->physical_size()
-				       - FIL_PAGE_FCHKSUM_CRC32)));
+				       - FIL_PAGE_FCRC32_CHECKSUM)));
 		} else {
 			memcpy(tmp_mem + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION,
 			       src + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION, 8);
@@ -829,7 +829,7 @@ static bool fil_space_decrypt_for_full_checksum(
 	dberr_t*		err)
 {
 	uint key_version = mach_read_from_4(
-		src_frame + FIL_PAGE_FCHKSUM_KEY_VERSION);
+		src_frame + FIL_PAGE_FCRC32_KEY_VERSION);
 	lsn_t lsn = mach_read_from_8(src_frame + FIL_PAGE_LSN);
 	uint offset = mach_read_from_4(src_frame + FIL_PAGE_OFFSET);
 	*err = DB_SUCCESS;
@@ -848,7 +848,7 @@ static bool fil_space_decrypt_for_full_checksum(
 	uint dstlen = 0;
 	uint srclen = uint(srv_page_size)
 		- (FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION
-		   + FIL_PAGE_FCHKSUM_CRC32);
+		   + FIL_PAGE_FCRC32_CHECKSUM);
 
 	int rc = encryption_scheme_decrypt(src, srclen, dst, &dstlen,
 					   crypt_data, key_version,
@@ -868,9 +868,9 @@ static bool fil_space_decrypt_for_full_checksum(
 	}
 
 	/* Copy only checksum part in the trailer */
-	memcpy(tmp_frame + srv_page_size - FIL_PAGE_FCHKSUM_CRC32,
-	       src_frame + srv_page_size - FIL_PAGE_FCHKSUM_CRC32,
-	       FIL_PAGE_FCHKSUM_CRC32);
+	memcpy(tmp_frame + srv_page_size - FIL_PAGE_FCRC32_CHECKSUM,
+	       src_frame + srv_page_size - FIL_PAGE_FCRC32_CHECKSUM,
+	       FIL_PAGE_FCRC32_CHECKSUM);
 
 	srv_stats.pages_decrypted.inc();
 

@@ -3032,7 +3032,7 @@ err_exit:
 	memset(page, '\0', srv_page_size);
 
 	if (fil_space_t::full_crc32(flags)) {
-		flags |= FSP_FLAGS_FCHKSUM_PAGE_SSIZE();
+		flags |= FSP_FLAGS_FCRC32_PAGE_SSIZE();
 	} else {
 		flags |= FSP_FLAGS_PAGE_SSIZE();
 	}

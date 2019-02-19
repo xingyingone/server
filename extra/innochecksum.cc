@@ -281,7 +281,7 @@ static void init_page_size(const byte* buf)
 	const unsigned	flags = mach_read_from_4(buf + FIL_PAGE_DATA
 						 + FSP_SPACE_FLAGS);
 
-	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)) {
+	if (FSP_FLAGS_FCRC32_HAS_MARKER(flags)) {
 		srv_page_size = fil_space_t::logical_size(flags);
 		physical_page_size = srv_page_size;
 		return;
@@ -467,7 +467,7 @@ is_page_corrupted(
 		logseq = mach_read_from_4(buf + FIL_PAGE_LSN + 4);
 		logseqfield = use_full_crc32
 			? mach_read_from_4(buf + srv_page_size
-					   - FIL_PAGE_FCHKSUM_END_LSN)
+					   - FIL_PAGE_FCRC32_END_LSN)
 			: mach_read_from_4(buf + srv_page_size
 					   - FIL_PAGE_END_LSN_OLD_CHKSUM + 4);
 
@@ -614,7 +614,7 @@ static bool update_checksum(byte* page, ulint flags)
 
 	} else if (use_full_crc32) {
 		checksum = buf_calc_page_full_crc32(page);
-		byte* c = page + physical_page_size - FIL_PAGE_FCHKSUM_CRC32;
+		byte* c = page + physical_page_size - FIL_PAGE_FCRC32_CHECKSUM;
 		if (mach_read_from_4(c) == checksum) return false;
 		mach_write_to_4(c, checksum);
 		if (is_log_enabled) {

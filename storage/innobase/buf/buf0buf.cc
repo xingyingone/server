@@ -949,9 +949,9 @@ buf_page_is_corrupted(
 #ifndef UNIV_INNOCHECKSUM
 	DBUG_EXECUTE_IF("buf_page_import_corrupt_failure", return(true); );
 #endif
-	if (FSP_FLAGS_FCHKSUM_HAS_MARKER(fsp_flags)) {
+	if (FSP_FLAGS_FCRC32_HAS_MARKER(fsp_flags)) {
 		const byte* end = read_buf + srv_page_size;
-		uint crc32 = mach_read_from_4(end - FIL_PAGE_FCHKSUM_CRC32);
+		uint crc32 = mach_read_from_4(end - FIL_PAGE_FCRC32_CHECKSUM);
 
 		if (!crc32) {
 			const byte* b = read_buf;
@@ -972,9 +972,9 @@ nonzero:
 			return true;
 		}
 
-		if (!mach_read_from_4(read_buf + FIL_PAGE_FCHKSUM_KEY_VERSION)
+		if (!mach_read_from_4(read_buf + FIL_PAGE_FCRC32_KEY_VERSION)
 		    && memcmp(read_buf + (FIL_PAGE_LSN + 4),
-			      end - FIL_PAGE_FCHKSUM_END_LSN, 4)) {
+			      end - FIL_PAGE_FCRC32_END_LSN, 4)) {
 			return true;
 		}
 
@@ -5872,7 +5872,7 @@ static bool buf_encrypted_full_crc32_page_is_corrupted(
 	const byte*	dst_frame)
 {
 	if (memcmp(dst_frame + FIL_PAGE_LSN + 4,
-	           dst_frame + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN, 4)) {
+	           dst_frame + srv_page_size - FIL_PAGE_FCRC32_END_LSN, 4)) {
 		return true;
 	}
 
@@ -7400,7 +7400,7 @@ buf_page_encrypt(
 		/* No need to encrypt or page compress the page.
 		Clear key-version & crypt-checksum. */
 		if (space->full_crc32()) {
-			memset(src_frame + FIL_PAGE_FCHKSUM_KEY_VERSION, 0, 4);
+			memset(src_frame + FIL_PAGE_FCRC32_KEY_VERSION, 0, 4);
 		} else {
 			memset(src_frame + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION,
 			       0, 8);

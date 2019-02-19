@@ -3853,8 +3853,8 @@ static int innodb_init_params()
 	switch (srv_checksum_algorithm) {
 	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
-		srv_sys_space.set_flags(FSP_FLAGS_FCHKSUM_MASK_MARKER
-					| FSP_FLAGS_FCHKSUM_PAGE_SSIZE());
+		srv_sys_space.set_flags(FSP_FLAGS_FCRC32_MASK_MARKER
+					| FSP_FLAGS_FCRC32_PAGE_SSIZE());
 		break;
 	default:
 		srv_sys_space.set_flags(FSP_FLAGS_PAGE_SSIZE());
@@ -3876,8 +3876,8 @@ static int innodb_init_params()
 	switch (srv_checksum_algorithm) {
 	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
-		srv_tmp_space.set_flags(FSP_FLAGS_FCHKSUM_MASK_MARKER
-					| FSP_FLAGS_FCHKSUM_PAGE_SSIZE());
+		srv_tmp_space.set_flags(FSP_FLAGS_FCRC32_MASK_MARKER
+					| FSP_FLAGS_FCRC32_PAGE_SSIZE());
 		break;
 	default:
 		srv_tmp_space.set_flags(FSP_FLAGS_PAGE_SSIZE());

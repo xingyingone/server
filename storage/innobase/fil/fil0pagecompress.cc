@@ -257,8 +257,8 @@ success:
 		ulint fsp_flags = 0;
 		if (fil_space_t::full_crc32(flags)) {
 			/* Need to construct flag for new crc32 checksum */
-			fsp_flags = 1U << FSP_FLAGS_FCHKSUM_POS_MARKER;
-			fsp_flags |= FSP_FLAGS_FCHKSUM_PAGE_SSIZE();
+			fsp_flags = 1U << FSP_FLAGS_FCRC32_POS_MARKER;
+			fsp_flags |= FSP_FLAGS_FCRC32_PAGE_SSIZE();
 
 			ut_ad(!buf_page_is_corrupted(false, page, fsp_flags));
 		} else {

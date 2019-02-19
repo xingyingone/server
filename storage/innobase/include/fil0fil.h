@@ -264,7 +264,7 @@ struct fil_space_t {
 	@param[in]	flags	tablespace flags (FSP_FLAGS)
 	@return whether the full_crc32 algorithm is active */
 	static bool full_crc32(ulint flags) {
-		return flags & FSP_FLAGS_FCHKSUM_MASK_MARKER;
+		return flags & FSP_FLAGS_FCRC32_MASK_MARKER;
 	}
 	/** @return whether innodb_checksum_algorithm=full_crc32 is active */
 	bool full_crc32() const { return full_crc32(flags); }
@@ -277,7 +277,7 @@ struct fil_space_t {
 		ulint page_ssize = 0;
 
 		if (full_crc32(flags)) {
-			page_ssize = FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags);
+			page_ssize = FSP_FLAGS_FCRC32_GET_PAGE_SSIZE(flags);
 		} else {
 			page_ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
 		}
@@ -332,7 +332,7 @@ struct fil_space_t {
 	static bool is_compressed(ulint flags) {
 
 		if (full_crc32(flags)) {
-			ulint algo = FSP_FLAGS_FCHKSUM_GET_COMPRESSED_ALGO(
+			ulint algo = FSP_FLAGS_FCRC32_GET_COMPRESSED_ALGO(
 					flags);
 			ut_ad(algo < 6);
 			return (algo > 0);
@@ -354,7 +354,7 @@ struct fil_space_t {
 			return false;
 		}
 
-		ulint page_ssize = FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags);
+		ulint page_ssize = FSP_FLAGS_FCRC32_GET_PAGE_SSIZE(flags);
 		ulint space_page_ssize = FSP_FLAGS_GET_PAGE_SSIZE(expected);
 
 		if ((page_ssize == 5 && space_page_ssize != 0)
@@ -382,7 +382,7 @@ struct fil_space_t {
 		}
 
 		ulint page_ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
-		ulint space_page_ssize = FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(
+		ulint space_page_ssize = FSP_FLAGS_FCRC32_GET_PAGE_SSIZE(
 			expected);
 
 		if ((page_ssize == 0 && space_page_ssize != 5)
@@ -408,13 +408,13 @@ struct fil_space_t {
 	@return whether the flags are correct in full crc32 format */
 	static bool is_fcrc32_valid_flags(ulint flags)
 	{
-		ut_ad(flags & FSP_FLAGS_FCHKSUM_MASK_MARKER);
+		ut_ad(flags & FSP_FLAGS_FCRC32_MASK_MARKER);
 		const ulint page_ssize = physical_size(flags);
 		if (page_ssize < 3 || page_ssize & 8) {
 			return false;
 		}
 
-		flags >>= FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO;
+		flags >>= FSP_FLAGS_FCRC32_POS_COMPRESSED_ALGO;
 
 		return flags <= PAGE_ALGORITHM_LAST;
 	}
@@ -656,7 +656,7 @@ or 64 bites of zero if no encryption */
 
 /** 32-bit key version used to encrypt the page in full crc32 format.
 For non-encrypted page, it contains 0. */
-#define FIL_PAGE_FCHKSUM_KEY_VERSION	0
+#define FIL_PAGE_FCRC32_KEY_VERSION	0
 
 /* Following are used when page compression is used */
 #define FIL_PAGE_COMPRESSED_SIZE 2      /*!< Number of bytes used to store
@@ -674,10 +674,10 @@ For non-encrypted page, it contains 0. */
 #define FIL_PAGE_DATA_END	8	/*!< size of the page trailer */
 
 /** Store the last 4 bytes of FIL_PAGE_LSN */
-#define FIL_PAGE_FCHKSUM_END_LSN 8
+#define FIL_PAGE_FCRC32_END_LSN 8
 
 /** Store crc32 checksum at the end of the page */
-#define FIL_PAGE_FCHKSUM_CRC32	4
+#define FIL_PAGE_FCRC32_CHECKSUM	4
 /* @} */
 
 /** File page types (values of FIL_PAGE_TYPE) @{ */

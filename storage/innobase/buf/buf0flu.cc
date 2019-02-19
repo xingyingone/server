@@ -752,7 +752,7 @@ buf_flush_update_zip_checksum(
 void buf_flush_assign_full_crc32_checksum(byte* page)
 {
 	uint32_t checksum = buf_calc_page_full_crc32(page);
-	mach_write_to_4(page + srv_page_size - FIL_PAGE_FCHKSUM_CRC32,
+	mach_write_to_4(page + srv_page_size - FIL_PAGE_FCRC32_CHECKSUM,
 			checksum);
 }
 
@@ -777,7 +777,7 @@ buf_flush_init_for_writing(
 		checksum stored already as a part of fil_encrypt_buf() */
 		ut_ad(use_full_checksum);
 		ut_ad(mach_read_from_4(
-			page + FIL_PAGE_FCHKSUM_KEY_VERSION));
+			page + FIL_PAGE_FCRC32_KEY_VERSION));
 		return;
 	}
 
@@ -830,7 +830,7 @@ buf_flush_init_for_writing(
 	mach_write_to_8(page + FIL_PAGE_LSN, newest_lsn);
 
 	if (use_full_checksum) {
-		mach_write_to_4(page + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN,
+		mach_write_to_4(page + srv_page_size - FIL_PAGE_FCRC32_END_LSN,
 				(ulint) newest_lsn);
 	} else {
 		mach_write_to_8(page + srv_page_size - FIL_PAGE_END_LSN_OLD_CHKSUM,

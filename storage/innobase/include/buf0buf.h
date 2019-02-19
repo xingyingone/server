@@ -742,8 +742,8 @@ stored in 26th position.
 @return key version of the page. */
 inline uint32_t buf_page_get_key_version(const byte* read_buf, ulint fsp_flags)
 {
-	return FSP_FLAGS_FCHKSUM_HAS_MARKER(fsp_flags)
-		? mach_read_from_4(read_buf + FIL_PAGE_FCHKSUM_KEY_VERSION)
+	return FSP_FLAGS_FCRC32_HAS_MARKER(fsp_flags)
+		? mach_read_from_4(read_buf + FIL_PAGE_FCRC32_KEY_VERSION)
 		: mach_read_from_4(read_buf
 				   + FIL_PAGE_FILE_FLUSH_LSN_OR_KEY_VERSION);
 }

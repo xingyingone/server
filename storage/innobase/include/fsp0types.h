@@ -230,13 +230,13 @@ to ROW_FORMAT=REDUNDANT and ROW_FORMAT=COMPACT. */
 #define FSP_FLAGS_MASK		(~(~0U << FSP_FLAGS_WIDTH))
 
 /** Number of flag bits used to indicate the tablespace page size */
-#define FSP_FLAGS_FCHKSUM_WIDTH_PAGE_SSIZE	4
+#define FSP_FLAGS_FCRC32_WIDTH_PAGE_SSIZE	4
 
 /** Marker to indicate whether tablespace is in full checksum format. */
-#define FSP_FLAGS_FCHKSUM_WIDTH_MARKER		1
+#define FSP_FLAGS_FCRC32_WIDTH_MARKER		1
 
 /** Stores the compressed algo for full checksum format. */
-#define FSP_FLAGS_FCHKSUM_WIDTH_COMPRESSED_ALGO	3
+#define FSP_FLAGS_FCRC32_WIDTH_COMPRESSED_ALGO	3
 
 /* FSP_SPACE_FLAGS position and name in MySQL 5.6/MariaDB 10.0 or older
 and MariaDB 10.1.20 or older MariaDB 10.1 and in MariaDB 10.1.21
@@ -303,16 +303,16 @@ these are only used in MySQL 5.7 and used for compatibility. */
 
 /** Zero relative shift position of the PAGE_SIZE field
 in full crc32 format */
-#define FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE	0
+#define FSP_FLAGS_FCRC32_POS_PAGE_SSIZE	0
 
 /** Zero relative shift position of the MARKER field in full crc32 format. */
-#define FSP_FLAGS_FCHKSUM_POS_MARKER	(FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE \
-					 + FSP_FLAGS_FCHKSUM_WIDTH_PAGE_SSIZE)
+#define FSP_FLAGS_FCRC32_POS_MARKER	(FSP_FLAGS_FCRC32_POS_PAGE_SSIZE \
+					 + FSP_FLAGS_FCRC32_WIDTH_PAGE_SSIZE)
 
 /** Zero relative shift position of the compressed algorithm stored
 in full crc32 format. */
-#define FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO	(FSP_FLAGS_FCHKSUM_POS_MARKER \
-						 + FSP_FLAGS_FCHKSUM_WIDTH_MARKER)
+#define FSP_FLAGS_FCRC32_POS_COMPRESSED_ALGO	(FSP_FLAGS_FCRC32_POS_MARKER \
+						 + FSP_FLAGS_FCRC32_WIDTH_MARKER)
 
 /** Bit mask of the POST_ANTELOPE field */
 #define FSP_FLAGS_MASK_POST_ANTELOPE				\
@@ -344,19 +344,19 @@ in full crc32 format. */
 		(15U << FSP_FLAGS_MEM_COMPRESSION_LEVEL)
 
 /** Bit mask of the PAGE_SIZE field in full crc32 format */
-#define FSP_FLAGS_FCHKSUM_MASK_PAGE_SSIZE			\
-		((~(~0U << FSP_FLAGS_FCHKSUM_WIDTH_PAGE_SSIZE))	\
-		<< FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE)
+#define FSP_FLAGS_FCRC32_MASK_PAGE_SSIZE			\
+		((~(~0U << FSP_FLAGS_FCRC32_WIDTH_PAGE_SSIZE))	\
+		<< FSP_FLAGS_FCRC32_POS_PAGE_SSIZE)
 
 /** Bit mask of the MARKER field in full crc32 format */
-#define FSP_FLAGS_FCHKSUM_MASK_MARKER				\
-		((~(~0U << FSP_FLAGS_FCHKSUM_WIDTH_MARKER))	\
-		<< FSP_FLAGS_FCHKSUM_POS_MARKER)
+#define FSP_FLAGS_FCRC32_MASK_MARKER				\
+		((~(~0U << FSP_FLAGS_FCRC32_WIDTH_MARKER))	\
+		<< FSP_FLAGS_FCRC32_POS_MARKER)
 
 /** Bit mask of the COMPRESSED ALGO field in full crc32 format */
-#define FSP_FLAGS_FCHKSUM_MASK_COMPRESSED_ALGO			\
-		((~(~0U << FSP_FLAGS_FCHKSUM_WIDTH_COMPRESSED_ALGO))	\
-		<< FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO)
+#define FSP_FLAGS_FCRC32_MASK_COMPRESSED_ALGO			\
+		((~(~0U << FSP_FLAGS_FCRC32_WIDTH_COMPRESSED_ALGO))	\
+		<< FSP_FLAGS_FCRC32_POS_COMPRESSED_ALGO)
 
 /** Return the value of the POST_ANTELOPE field */
 #define FSP_FLAGS_GET_POST_ANTELOPE(flags)			\
@@ -383,17 +383,17 @@ in full crc32 format. */
 		((flags & FSP_FLAGS_MASK_PAGE_COMPRESSION)	\
 		>> FSP_FLAGS_POS_PAGE_COMPRESSION)
 /** @return the PAGE_SSIZE flags in full crc32 format */
-#define FSP_FLAGS_FCHKSUM_GET_PAGE_SSIZE(flags)			\
-		((flags & FSP_FLAGS_FCHKSUM_MASK_PAGE_SSIZE)	\
-		>> FSP_FLAGS_FCHKSUM_POS_PAGE_SSIZE)
+#define FSP_FLAGS_FCRC32_GET_PAGE_SSIZE(flags)			\
+		((flags & FSP_FLAGS_FCRC32_MASK_PAGE_SSIZE)	\
+		>> FSP_FLAGS_FCRC32_POS_PAGE_SSIZE)
 /** @return the MARKER flag in full crc32 format */
-#define FSP_FLAGS_FCHKSUM_HAS_MARKER(flags)			\
-		((flags & FSP_FLAGS_FCHKSUM_MASK_MARKER)	\
-		>> FSP_FLAGS_FCHKSUM_POS_MARKER)
+#define FSP_FLAGS_FCRC32_HAS_MARKER(flags)			\
+		((flags & FSP_FLAGS_FCRC32_MASK_MARKER)	\
+		>> FSP_FLAGS_FCRC32_POS_MARKER)
 /** @return the COMPRESSED_ALGO flags in full crc32 format */
-#define FSP_FLAGS_FCHKSUM_GET_COMPRESSED_ALGO(flags)			\
-		((flags & FSP_FLAGS_FCHKSUM_MASK_COMPRESSED_ALGO)	\
-		>> FSP_FLAGS_FCHKSUM_POS_COMPRESSED_ALGO)
+#define FSP_FLAGS_FCRC32_GET_COMPRESSED_ALGO(flags)			\
+		((flags & FSP_FLAGS_FCRC32_MASK_COMPRESSED_ALGO)	\
+		>> FSP_FLAGS_FCRC32_POS_COMPRESSED_ALGO)
 
 /** @return the value of the DATA_DIR field */
 #define FSP_FLAGS_HAS_DATA_DIR(flags)				\

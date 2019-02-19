@@ -658,8 +658,8 @@ dict_tf_to_fsp_flags(ulint table_flags)
 	    && !(table_flags & DICT_TF_MASK_ZIP_SSIZE)
 	    && !page_compression_level) {
 
-		fsp_flags = 1U << FSP_FLAGS_FCHKSUM_POS_MARKER;
-		fsp_flags |= FSP_FLAGS_FCHKSUM_PAGE_SSIZE();
+		fsp_flags = 1U << FSP_FLAGS_FCRC32_POS_MARKER;
+		fsp_flags |= FSP_FLAGS_FCRC32_PAGE_SSIZE();
 	} else {
 		/* Adjust bit zero. */
 		fsp_flags = DICT_TF_HAS_ATOMIC_BLOBS(table_flags) ? 1 : 0;

@@ -826,7 +826,7 @@ buf_dblwr_check_page_lsn(
 		   4)) {
 		if (memcmp(page + (FIL_PAGE_LSN + 4),
 			   page + (srv_page_size
-				   - FIL_PAGE_FCHKSUM_END_LSN),
+				   - FIL_PAGE_FCRC32_END_LSN),
 			   4)) {
 			lsn_mismatch = true;
 		}

@@ -2033,7 +2033,7 @@ dberr_t PageConverter::operator()(buf_block_t* block) UNIV_NOTHROW
 			byte* page = block->frame;
 			mach_write_to_8(page + FIL_PAGE_LSN, m_current_lsn);
 			mach_write_to_4(
-				page + srv_page_size - FIL_PAGE_FCHKSUM_END_LSN,
+				page + srv_page_size - FIL_PAGE_FCRC32_END_LSN,
 				(ulint) m_current_lsn);
 			return err;
 		}

@@ -658,8 +658,8 @@ static bool srv_undo_tablespace_open(const char* name, ulint space_id,
 	switch (srv_checksum_algorithm) {
 	case SRV_CHECKSUM_ALGORITHM_FULL_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32:
-		fsp_flags = (FSP_FLAGS_FCHKSUM_MASK_MARKER
-			     | FSP_FLAGS_FCHKSUM_PAGE_SSIZE());
+		fsp_flags = (FSP_FLAGS_FCRC32_MASK_MARKER
+			     | FSP_FLAGS_FCRC32_PAGE_SSIZE());
 		break;
 	default:
 		fsp_flags = FSP_FLAGS_PAGE_SSIZE();
