@@ -12522,30 +12522,23 @@ ha_innobase::check_table_options(
 		}
 	}
 
-	/* Ignore nondefault key_id if encryption is set off */
-	if (encrypt == FIL_ENCRYPTION_OFF &&
-		options->encryption_key_id != THDVAR(thd, default_encryption_key_id)) {
+	/* We should ignore key_id table option when user has
+	explicitly requested no encryption or if default encryption
+	is used and encryption is disabled. */
+	const uint key_id = THDVAR(thd, default_encryption_key_id);
+	if ((encrypt == FIL_ENCRYPTION_OFF
+	    || (encrypt == FIL_ENCRYPTION_DEFAULT && !srv_encrypt_tables))
+	    && options->encryption_key_id != key_id) {
 		push_warning_printf(
 			thd, Sql_condition::WARN_LEVEL_WARN,
 			HA_WRONG_CREATE_OPTION,
-			"InnoDB: Ignored ENCRYPTION_KEY_ID %u when encryption is disabled",
-			(uint)options->encryption_key_id
+			"InnoDB: ENCRYPTION_KEY_ID=%u ignored when %s",
+			(uint)options->encryption_key_id,
+			encrypt == FIL_ENCRYPTION_OFF ? "ENCRYPTED=NO"
+			  : "innodb_encrypt_tables=OFF"
 		);
-		options->encryption_key_id = FIL_DEFAULT_ENCRYPTION_KEY;
-	}
 
-	/* If default encryption is used and encryption is disabled, you may
-	not use nondefault encryption_key_id as it is not stored anywhere. */
-	if (encrypt == FIL_ENCRYPTION_DEFAULT
-	    && !srv_encrypt_tables
-	    && options->encryption_key_id != FIL_DEFAULT_ENCRYPTION_KEY) {
-		compile_time_assert(FIL_DEFAULT_ENCRYPTION_KEY == 1);
-		push_warning_printf(
-			thd, Sql_condition::WARN_LEVEL_WARN,
-			HA_WRONG_CREATE_OPTION,
-			"InnoDB: innodb_encrypt_tables=OFF only allows ENCRYPTION_KEY_ID=1"
-			);
-		return "ENCRYPTION_KEY_ID";
+		options->encryption_key_id = key_id;
 	}
 
 	/* Check atomic writes requirements */
