@@ -512,19 +512,18 @@ decompress_with_slot:
 		return bpage->write_size != 0;
 	}
 
-	if (space->crypt_data && key_version) {
+	if (key_version && space->crypt_data) {
 		/* Verify encryption checksum before we even try to
 		decrypt. */
 		if (!buf_page_verify_crypt_checksum(dst_frame, space->flags)) {
 decrypt_failed:
 			ib::error() << "Encrypted page " << bpage->id
-				<< " in file "
-				<< space->chain.start->name
-				<< " looks corrupted; key_version="
-				<< key_version;
+				    << " in file " << space->chain.start->name
+				    << " looks corrupted; key_version="
+				    << key_version;
 			/* Mark page encrypted in case it should be. */
 			if (space->crypt_data->type
-				!= CRYPT_SCHEME_UNENCRYPTED) {
+			    != CRYPT_SCHEME_UNENCRYPTED) {
 				bpage->encrypted = true;
 			}
 
@@ -5921,7 +5920,7 @@ static dberr_t buf_page_check_corrupt(buf_page_t* bpage, fil_space_t* space)
 	if (!still_encrypted) {
 		/* If traditional checksums match, we assume that page is
 		not anymore encrypted. */
-		if (space->full_crc32() && key_version) {
+		if (key_version && space->full_crc32()) {
 			corrupted = buf_encrypted_full_crc32_page_is_corrupted(
 					space->id, dst_frame);
 		} else {
@@ -5952,7 +5951,7 @@ static dberr_t buf_page_check_corrupt(buf_page_t* bpage, fil_space_t* space)
 
 		ib::info()
 			<< "However key management plugin or used key_version "
-			<< buf_page_get_key_version(dst_frame, space->flags)
+			<< key_version
 			<< " is not found or"
 			" used encryption algorithm or method does not match.";
 

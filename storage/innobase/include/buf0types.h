@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2015, Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -85,12 +86,12 @@ enum srv_checksum_algorithm_t {
 	SRV_CHECKSUM_ALGORITHM_STRICT_NONE,	/*!< Write none, allow none
 						when reading */
 
-	/* Write crc32 value for whole page, allow full crc32,
-	crc32, innodb or none when reading */
+	/** For new files, always compute CRC-32C for the whole page.
+	For old files, allow crc32, innodb or none when reading. */
 	SRV_CHECKSUM_ALGORITHM_FULL_CRC32,
 
-	/* Write crc32 value for whole page, allow full crc32
-	value when reading */
+	/** For new files, always compute CRC-32C for the whole page.
+	For old files, allow crc32 when reading. */
 	SRV_CHECKSUM_ALGORITHM_STRICT_FULL_CRC32
 };
 

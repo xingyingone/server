@@ -3887,6 +3887,9 @@ void fsp_flags_try_adjust(fil_space_t* space, ulint flags)
 {
 	ut_ad(!srv_read_only_mode);
 	ut_ad(fil_space_t::is_valid_flags(flags, space->id));
+	if (space->full_crc32()) {
+		return;
+	}
 	if (!space->size && (space->purpose != FIL_TYPE_TABLESPACE
 			     || !fil_space_get_size(space->id))) {
 		return;
@@ -3901,21 +3904,20 @@ void fsp_flags_try_adjust(fil_space_t* space, ulint flags)
 		    RW_X_LATCH, &mtr)) {
 		ulint f = fsp_header_get_flags(b->frame);
 		/* Suppress the message if only the DATA_DIR flag to differs. */
-		bool is_equal = fil_space_t::is_flags_equal(f, flags);
-		if (!is_equal) {
+		if ((f ^ flags) & ~(1U << FSP_FLAGS_POS_RESERVED)) {
 			ib::warn()
 				<< "adjusting FSP_SPACE_FLAGS of file '"
 				<< UT_LIST_GET_FIRST(space->chain)->name
 				<< "' from " << ib::hex(f)
 				<< " to " << ib::hex(flags);
-
+		}
+		if (f != flags) {
 			mtr.set_named_space(space);
 			mlog_write_ulint(FSP_HEADER_OFFSET
 					 + FSP_SPACE_FLAGS + b->frame,
 					 flags, MLOG_4BYTES, &mtr);
 		}
 	}
-
 	mtr.commit();
 }
 

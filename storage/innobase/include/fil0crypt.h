@@ -353,7 +353,6 @@ fil_space_encrypt(
 @param[in]	fsp_flags		Tablespace flags
 @param[in,out]	src_frame		Page to decrypt
 @param[out]	err			DB_SUCCESS or DB_DECRYPTION_FAILED
-@param[in]	fsp_flags		tablespace flags
 @return true if page decrypted, false if not.*/
 UNIV_INTERN
 bool
@@ -372,7 +371,6 @@ Decrypt a page
 @param[in]	tmp_frame		Temporary buffer used for decrypting
 @param[in,out]	src_frame		Page to decrypt
 @param[out]	decrypted		true if page was decrypted
-@param[in]	fsp_flags		tablespace flags
 @return decrypted page, or original not encrypted page if decryption is
 not needed.*/
 UNIV_INTERN

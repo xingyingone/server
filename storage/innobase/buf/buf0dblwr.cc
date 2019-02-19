@@ -819,11 +819,11 @@ buf_dblwr_check_page_lsn(
 
 	bool lsn_mismatch = false;
 
+	// MDEV-12026 FIXME: invoke fil_space_t::full_crc32()
 	if (memcmp(page + (FIL_PAGE_LSN + 4),
 		   page + (srv_page_size
 			   - FIL_PAGE_END_LSN_OLD_CHKSUM + 4),
 		   4)) {
-
 		if (memcmp(page + (FIL_PAGE_LSN + 4),
 			   page + (srv_page_size
 				   - FIL_PAGE_FCHKSUM_END_LSN),
@@ -833,6 +833,7 @@ buf_dblwr_check_page_lsn(
 	}
 
 	if (lsn_mismatch) {
+		// MDEV-12026 FIXME: lsn2 depends on fil_space_t::full_crc32()!
 		const ulint	lsn1 = mach_read_from_4(
 			page + FIL_PAGE_LSN + 4);
 		const ulint	lsn2 = mach_read_from_4(
