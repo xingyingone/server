@@ -6945,6 +6945,7 @@ class THD_list
 {
   I_List<THD> threads;
   mutable mysql_rwlock_t lock;
+  bool disable_insert;
 
 public:
   /**
@@ -6957,6 +6958,7 @@ public:
   void init()
   {
     mysql_rwlock_init(key_rwlock_THD_list, &lock);
+    disable_insert= false;
   }
 
   /** Destructor replacement. */
@@ -6972,10 +6974,29 @@ public:
 
     Thread becomes accessible via server_threads.
   */
-  void insert(THD *thd)
+  int insert(THD *thd)
+  {
+    int ret;
+    mysql_rwlock_wrlock(&lock);
+    if (disable_insert)
+      ret = -1;
+    else
+    {
+      threads.append(thd);
+      ret = 0;
+    }
+    mysql_rwlock_unlock(&lock);
+    return ret;
+  }
+
+  /**
+    Set a flag to reject inserting new THDs to the list
+    This is used during server shutdown.
+  */
+  void set_disable_insert()
   {
     mysql_rwlock_wrlock(&lock);
-    threads.append(thd);
+    disable_insert= true;
     mysql_rwlock_unlock(&lock);
   }
 

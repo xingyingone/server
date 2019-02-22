@@ -231,19 +231,26 @@ static THD* threadpool_add_connection(CONNECT *connect, void *scheduler_data)
     connect->close_and_delete();
     if (mysys_var)
     {
-#ifdef HAVE_PSI_INTERFACE
       /*
        current PSI is still from worker thread.
        Set to 0, to avoid premature cleanup by my_thread_end
       */
-      if (PSI_server) PSI_server->set_thread(0);
-#endif
+      PSI_CALL_set_thread(0);
       my_thread_end();
     }
     return NULL;
   }
+ 
   delete connect;
-  server_threads.insert(thd);
+
+  if (server_threads.insert(thd))
+  {
+    delete thd;
+    PSI_CALL_set_thread(0);
+    my_thread_end();
+    return NULL;
+  }
+
   thd->set_mysys_var(mysys_var);
   thd->event_scheduler.data= scheduler_data;
 

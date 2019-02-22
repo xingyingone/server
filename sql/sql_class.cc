@@ -4784,12 +4784,18 @@ TABLE *find_fk_open_table(THD *thd, const char *db, size_t db_len,
 MYSQL_THD create_thd()
 {
   THD *thd= new THD(next_thread_id());
+  if (!thd)
+    return 0;
   thd->thread_stack= (char*) &thd;
   thd->store_globals();
   thd->set_command(COM_DAEMON);
   thd->system_thread= SYSTEM_THREAD_GENERIC;
   thd->security_ctx->host_or_ip="";
-  server_threads.insert(thd);
+  if (server_threads.insert(thd))
+  {
+    delete thd;
+    return 0;
+  }
   return thd;
 }
 

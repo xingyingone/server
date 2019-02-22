@@ -1022,8 +1022,20 @@ handle_rpl_parallel_thread(void *arg)
 
   my_thread_init();
   thd = new THD(next_thread_id());
+  if (!thd)
+  {
+    my_thread_end();
+    return 0;
+  }
+
+  if (server_threads.insert(thd))
+  {
+    delete thd;
+    my_thread_end();
+    return 0;
+  }
+
   thd->thread_stack = (char*)&thd;
-  server_threads.insert(thd);
   set_current_thd(thd);
   pthread_detach_this_thread();
   thd->init_for_queries();

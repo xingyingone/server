@@ -2934,7 +2934,9 @@ pthread_handler_t handle_delayed_insert(void *arg)
   pthread_detach_this_thread();
   /* Add thread to THD list so that's it's visible in 'show processlist' */
   thd->set_start_time();
-  server_threads.insert(thd);
+  if (server_threads.insert(thd))
+    return NULL;
+
   if (abort_loop)
     thd->set_killed(KILL_CONNECTION);
   else

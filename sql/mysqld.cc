@@ -1640,6 +1640,7 @@ static void break_connect_loop()
 #endif
 
   abort_loop= 1;
+  server_threads.set_disable_insert();
 
 #if defined(__WIN__)
   if (!SetEvent(hEventShutdown))
@@ -2720,12 +2721,11 @@ static bool cache_thread(THD *thd)
       thd->thr_create_utime= microsecond_interval_timer();
       thd->start_utime= thd->thr_create_utime;
 
-      server_threads.insert(thd);
-      DBUG_RETURN(1);
+      DBUG_RETURN(!server_threads.insert(thd));
     }
   }
   mysql_mutex_unlock(&LOCK_thread_cache);
-  DBUG_RETURN(0);
+  DBUG_RETURN(false);
 }
 
 

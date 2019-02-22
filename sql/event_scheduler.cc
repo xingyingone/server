@@ -169,7 +169,7 @@ deinit_event_thread(THD *thd)
     2. thd->net is initted with NULL - no communication.
 */
 
-void
+int
 pre_init_event_thread(THD* thd)
 {
   THD *orig_thd= current_thd;
@@ -185,7 +185,8 @@ pre_init_event_thread(THD* thd)
   thd->net.read_timeout= slave_net_timeout;
   thd->variables.option_bits|= OPTION_AUTO_IS_NULL;
   thd->client_capabilities|= CLIENT_MULTI_RESULTS;
-  server_threads.insert(thd);
+  if (server_threads.insert(thd))
+    DBUG_RETURN(-1);
 
   /*
     Guarantees that we will see the thread in SHOW PROCESSLIST though its
@@ -199,7 +200,7 @@ pre_init_event_thread(THD* thd)
   thd->variables.lock_wait_timeout= LONG_TIMEOUT;
 
   set_current_thd(orig_thd);
-  DBUG_VOID_RETURN;
+  DBUG_RETURN(0);
 }
 
 
@@ -394,7 +395,12 @@ Event_scheduler::start(int *err_no)
     goto end;
   }
 
-  pre_init_event_thread(new_thd);
+  if (pre_init_event_thread(new_thd))
+  {
+    sql_print_error("Event Scheduler: pre_init_event_thread failed");
+    ret = true;
+    goto end;
+  }
   new_thd->system_thread= SYSTEM_THREAD_EVENT_SCHEDULER;
   new_thd->set_command(COM_DAEMON);
 
@@ -531,7 +537,9 @@ Event_scheduler::execute_top(Event_queue_element_for_exec *event_name)
   if (!(new_thd= new THD(next_thread_id())))
     goto error;
 
-  pre_init_event_thread(new_thd);
+  if (pre_init_event_thread(new_thd))
+    goto error;
+
   new_thd->system_thread= SYSTEM_THREAD_EVENT_WORKER;
   event_name->thd= new_thd;
   DBUG_PRINT("info", ("Event %s@%s ready for start",

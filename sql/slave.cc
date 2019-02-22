@@ -4694,7 +4694,12 @@ pthread_handler_t handle_slave_io(void *arg)
     goto err_during_init;
   }
   thd->system_thread_info.rpl_io_info= &io_info;
-  server_threads.insert(thd);
+  if (server_threads.insert(thd))
+  {
+    sql_print_error("Failed during slave I/O thread initialization - shutdown in progress");
+    goto err_during_init;
+  }
+
   mi->slave_running = MYSQL_SLAVE_RUN_NOT_CONNECT;
   mi->abort_slave = 0;
   mysql_mutex_unlock(&mi->run_lock);
@@ -5362,7 +5367,13 @@ pthread_handler_t handle_slave_sql(void *arg)
   /* Ensure that slave can exeute any alter table it gets from master */
   thd->variables.alter_algorithm= (ulong) Alter_info::ALTER_TABLE_ALGORITHM_DEFAULT;
 
-  server_threads.insert(thd);
+  if (server_threads.insert(thd))
+  {
+    rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR, NULL,
+      "Failed during slave thread initialization (shutdown in progress)");
+    goto err_during_init;
+  }
+
   /*
     We are going to set slave_running to 1. Assuming slave I/O thread is
     alive and connected, this is going to make Seconds_Behind_Master be 0

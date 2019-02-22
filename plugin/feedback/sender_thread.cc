@@ -90,7 +90,8 @@ static int prepare_for_fill(TABLE_LIST *tables)
     in SHOW STATUS and we want to avoid skewing the statistics)
   */
   thd->variables.pseudo_thread_id= thd->thread_id;
-  server_threads.insert(thd);
+  if (server_threads.insert(thd))
+    return 1;
   thd->thread_stack= (char*) &tables;
   if (thd->store_globals())
     return 1;

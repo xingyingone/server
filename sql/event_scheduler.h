@@ -38,7 +38,7 @@ class Event_queue_element_for_exec;
 class Events;
 class THD;
 
-void
+int
 pre_init_event_thread(THD* thd);
 
 bool
