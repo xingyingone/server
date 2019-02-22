@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2011, 2017, Oracle and/or its affiliates. All Rights Reserved.
-Copyright (c) 2017, 2018, MariaDB Corporation.
+Copyright (c) 2017, 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -361,7 +361,7 @@ buf_dump(
 		     bpage != NULL && j < n_pages;
 		     bpage = UT_LIST_GET_NEXT(LRU, bpage)) {
 
-			ut_a(buf_page_in_file(bpage));
+			ut_a(bpage->in_file());
 			if (bpage->id.space() >= SRV_LOG_SPACE_FIRST_ID) {
 				/* Ignore the innodb_temporary tablespace. */
 				continue;

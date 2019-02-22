@@ -87,7 +87,7 @@ release buf_pool->mutex.  Furthermore, the page frame will no longer be
 accessible via bpage.
 
 The caller must hold buf_pool->mutex and must not hold any
-buf_page_get_mutex() when calling this function.
+bpage->get_mutex() when calling this function.
 @return true if freed, false otherwise. */
 bool
 buf_LRU_free_page(

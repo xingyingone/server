@@ -3669,7 +3669,7 @@ fil_tablespace_iterate(
 		(ut_zalloc_nokey(sizeof *block));
 	block->frame = page;
 	block->page.id = page_id_t(0, 0);
-	block->page.io_fix = BUF_IO_NONE;
+	block->page.io_fix_ = BUF_IO_NONE;
 	block->page.buf_fix_count = 1;
 	block->page.state = BUF_BLOCK_FILE_PAGE;
 

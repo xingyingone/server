@@ -237,7 +237,7 @@ btr_cur_latch_leaves(
 	compile_time_assert(int(MTR_MEMO_PAGE_SX_FIX) == int(RW_SX_LATCH));
 
 	spatial = dict_index_is_spatial(cursor->index) && cursor->rtr_info;
-	ut_ad(buf_page_in_file(&block->page));
+	ut_ad(block->page.in_file());
 
 	switch (latch_mode) {
 	case BTR_SEARCH_LEAF:

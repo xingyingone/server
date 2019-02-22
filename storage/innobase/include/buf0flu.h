@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2016, Oracle and/or its affiliates. All Rights Reserved.
-Copyright (c) 2014, 2018, MariaDB Corporation.
+Copyright (c) 2014, 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -198,15 +198,6 @@ buf_flush_note_modification(
 	lsn_t		end_lsn,	/*!< in: end lsn of the last mtr in the
 					set of mtr's */
 	FlushObserver*	observer);	/*!< in: flush observer */
-/********************************************************************//**
-Returns TRUE if the file page block is immediately suitable for replacement,
-i.e., transition FILE_PAGE => NOT_USED allowed.
-@return TRUE if can replace immediately */
-ibool
-buf_flush_ready_for_replace(
-/*========================*/
-	buf_page_t*	bpage);	/*!< in: buffer control block, must be
-				buf_page_in_file(bpage) and in the LRU list */
 
 #ifdef UNIV_DEBUG
 /** Disables page cleaner threads (coordinator and workers).
@@ -278,7 +269,7 @@ buf_flush_free_flush_rbt(void);
 Writes a flushable page asynchronously from the buffer pool to a file.
 NOTE: in simulated aio we must call
 os_aio_simulated_wake_handler_threads after we have posted a batch of
-writes! NOTE: buf_pool->mutex and buf_page_get_mutex(bpage) must be
+writes! NOTE: buf_pool->mutex and bpage->get_mutex() must be
 held upon entering this function, and they will be released by this
 function.
 @return TRUE if page was flushed */
@@ -289,16 +280,6 @@ buf_flush_page(
 	buf_page_t*	bpage,		/*!< in: buffer control block */
 	buf_flush_t	flush_type,	/*!< in: type of flush */
 	bool		sync);		/*!< in: true if sync IO request */
-/********************************************************************//**
-Returns true if the block is modified and ready for flushing.
-@return true if can flush immediately */
-bool
-buf_flush_ready_for_flush(
-/*======================*/
-	buf_page_t*	bpage,	/*!< in: buffer control block, must be
-				buf_page_in_file(bpage) */
-	buf_flush_t	flush_type)/*!< in: type of flush */
-	MY_ATTRIBUTE((warn_unused_result));
 
 /******************************************************************//**
 Check if there are any dirty pages that belong to a space id in the flush

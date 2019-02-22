@@ -66,20 +66,17 @@ buf_read_page_handle_error(
 
 	/* First unfix and release lock on the bpage */
 	buf_pool_mutex_enter(buf_pool);
-	mutex_enter(buf_page_get_mutex(bpage));
-	ut_ad(buf_page_get_io_fix(bpage) == BUF_IO_READ);
+	ut_ad(bpage->io_fix() == BUF_IO_READ);
 	ut_ad(bpage->buf_fix_count == 0);
 
 	/* Set BUF_IO_NONE before we remove the block from LRU list */
-	buf_page_set_io_fix(bpage, BUF_IO_NONE);
+	bpage->set_io_fix(BUF_IO_NONE);
 
 	if (uncompressed) {
 		rw_lock_x_unlock_gen(
 			&((buf_block_t*) bpage)->lock,
 			BUF_IO_READ);
 	}
-
-	mutex_exit(buf_page_get_mutex(bpage));
 
 	/* remove the block from LRU list */
 	buf_LRU_free_one_page(bpage);
@@ -159,7 +156,7 @@ buf_read_page_low(
 		 "read page " << page_id << " zip_size=" << zip_size
 		 << " unzip=" << unzip << ',' << (sync ? "sync" : "async"));
 
-	ut_ad(buf_page_in_file(bpage));
+	ut_ad(bpage->in_file());
 
 	if (sync) {
 		thd_wait_begin(NULL, THD_WAIT_DISKIO);

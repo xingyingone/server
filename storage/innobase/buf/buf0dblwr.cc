@@ -931,7 +931,7 @@ buf_dblwr_write_block_to_datafile(
 	bool			sync)	/*!< in: true if sync IO
 					is requested */
 {
-	ut_a(buf_page_in_file(bpage));
+	ut_a(bpage->in_file());
 
 	ulint	type = IORequest::WRITE;
 
@@ -1131,7 +1131,7 @@ buf_dblwr_add_to_batch(
 /*====================*/
 	buf_page_t*	bpage)	/*!< in: buffer block to write */
 {
-	ut_a(buf_page_in_file(bpage));
+	ut_a(bpage->in_file());
 
 try_again:
 	mutex_enter(&buf_dblwr->mutex);
@@ -1219,7 +1219,7 @@ buf_dblwr_write_single_page(
 	ulint		offset;
 	ulint		i;
 
-	ut_a(buf_page_in_file(bpage));
+	ut_a(bpage->in_file());
 	ut_a(srv_use_doublewrite_buf);
 	ut_a(buf_dblwr != NULL);
 

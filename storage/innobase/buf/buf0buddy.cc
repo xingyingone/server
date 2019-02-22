@@ -631,11 +631,7 @@ buf_buddy_relocate(
 	contain uninitialized data. */
 	UNIV_MEM_ASSERT_W(src, size);
 
-	BPageMutex*	block_mutex = buf_page_get_mutex(bpage);
-
-	mutex_enter(block_mutex);
-
-	if (buf_page_can_relocate(bpage)) {
+	if (bpage->can_relocate()) {
 		/* Relocate the compressed page. */
 		uintmax_t	usec = ut_time_us(NULL);
 
@@ -645,8 +641,6 @@ buf_buddy_relocate(
 		bpage->zip.data = reinterpret_cast<page_zip_t*>(dst);
 
 		rw_lock_x_unlock(hash_lock);
-
-		mutex_exit(block_mutex);
 
 		buf_buddy_mem_invalid(
 			reinterpret_cast<buf_buddy_free_t*>(src), i);
@@ -658,8 +652,6 @@ buf_buddy_relocate(
 	}
 
 	rw_lock_x_unlock(hash_lock);
-
-	mutex_exit(block_mutex);
 	return(false);
 }
 

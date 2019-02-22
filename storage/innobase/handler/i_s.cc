@@ -5054,7 +5054,7 @@ i_s_innodb_buffer_page_get_info(
 	/* Only fetch information for buffers that map to a tablespace,
 	that is, buffer page with state BUF_BLOCK_ZIP_PAGE,
 	BUF_BLOCK_ZIP_DIRTY or BUF_BLOCK_FILE_PAGE */
-	if (buf_page_in_file(bpage)) {
+	if (bpage->in_file()) {
 		const byte*	frame;
 		ulint		page_type;
 
@@ -5074,13 +5074,13 @@ i_s_innodb_buffer_page_get_info(
 
 		page_info->zip_ssize = bpage->zip.ssize;
 
-		page_info->io_fix = bpage->io_fix;
+		page_info->io_fix = bpage->io_fix();
 
 		page_info->is_old = bpage->old;
 
 		page_info->freed_page_clock = bpage->freed_page_clock;
 
-		if (buf_page_get_io_fix(bpage) == BUF_IO_READ) {
+		if (bpage->io_fix() == BUF_IO_READ) {
 			page_info->page_type = I_S_PAGE_TYPE_UNKNOWN;
 			return;
 		}

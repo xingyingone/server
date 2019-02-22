@@ -941,15 +941,6 @@ buf_block_set_state(
 /*================*/
 	buf_block_t*		block,	/*!< in/out: pointer to control block */
 	enum buf_page_state	state);	/*!< in: state */
-/*********************************************************************//**
-Determines if a block is mapped to a tablespace.
-@return TRUE if mapped */
-UNIV_INLINE
-ibool
-buf_page_in_file(
-/*=============*/
-	const buf_page_t*	bpage)	/*!< in: pointer to control block */
-	MY_ATTRIBUTE((warn_unused_result));
 
 /*********************************************************************//**
 Determines if a block should be on unzip_LRU list.
@@ -958,16 +949,6 @@ UNIV_INLINE
 ibool
 buf_page_belongs_to_unzip_LRU(
 /*==========================*/
-	const buf_page_t*	bpage)	/*!< in: pointer to control block */
-	MY_ATTRIBUTE((warn_unused_result));
-
-/*********************************************************************//**
-Gets the mutex of a block.
-@return pointer to mutex protecting bpage */
-UNIV_INLINE
-BPageMutex*
-buf_page_get_mutex(
-/*===============*/
 	const buf_page_t*	bpage)	/*!< in: pointer to control block */
 	MY_ATTRIBUTE((warn_unused_result));
 
@@ -997,50 +978,6 @@ void
 buf_block_set_file_page(
 	buf_block_t*		block,
 	const page_id_t		page_id);
-
-/*********************************************************************//**
-Gets the io_fix state of a block.
-@return io_fix state */
-UNIV_INLINE
-enum buf_io_fix
-buf_page_get_io_fix(
-/*================*/
-	const buf_page_t*	bpage)	/*!< in: pointer to the control block */
-	MY_ATTRIBUTE((warn_unused_result));
-/*********************************************************************//**
-Gets the io_fix state of a block.
-@return io_fix state */
-UNIV_INLINE
-enum buf_io_fix
-buf_block_get_io_fix(
-/*================*/
-	const buf_block_t*	block)	/*!< in: pointer to the control block */
-	MY_ATTRIBUTE((warn_unused_result));
-/*********************************************************************//**
-Sets the io_fix state of a block. */
-UNIV_INLINE
-void
-buf_page_set_io_fix(
-/*================*/
-	buf_page_t*	bpage,	/*!< in/out: control block */
-	enum buf_io_fix	io_fix);/*!< in: io_fix state */
-/*********************************************************************//**
-Sets the io_fix state of a block. */
-UNIV_INLINE
-void
-buf_block_set_io_fix(
-/*=================*/
-	buf_block_t*	block,	/*!< in/out: control block */
-	enum buf_io_fix	io_fix);/*!< in: io_fix state */
-/********************************************************************//**
-Determine if a buffer block can be relocated in memory.  The block
-can be dirty, but it must not be I/O-fixed or bufferfixed. */
-UNIV_INLINE
-ibool
-buf_page_can_relocate(
-/*==================*/
-	const buf_page_t*	bpage)	/*!< control block being relocated */
-	MY_ATTRIBUTE((warn_unused_result));
 
 /*********************************************************************//**
 Determine if a block has been flagged old.
@@ -1445,12 +1382,44 @@ for compressed and uncompressed frames */
 
 class buf_page_t {
 public:
+	/** Copy constructor */
+	buf_page_t(const buf_page_t& b) :
+		id(b.id), hash(b.hash),
+		buf_fix_count(b.buf_fix_count), io_fix_(b.io_fix()),
+		state(b.state),
+		flush_type(b.flush_type),
+		buf_pool_index(b.buf_pool_index),
+		zip(b.zip),
+#if 1 // FIXME: remove these fields
+		write_size(b.write_size), encrypted(false),
+		real_size(b.real_size),
+#endif
+		slot(b.slot), // FIXME: move to buf_block_t
+#ifdef UNIV_DEBUG
+		in_page_hash(b.in_page_hash), in_zip_hash(b.in_zip_hash),
+#endif
+		list(b.list),
+#ifdef UNIV_DEBUG
+		in_flush_list(b.in_flush_list), in_free_list(b.in_free_list),
+#endif
+		flush_observer(b.flush_observer),
+		newest_modification(b.newest_modification),
+		oldest_modification(b.oldest_modification),
+		LRU(b.LRU),
+#ifdef UNIV_DEBUG
+		in_LRU_list(b.in_LRU_list),
+#endif
+		old(b.old), freed_page_clock(b.freed_page_clock),
+#ifdef UNIV_DEBUG
+		file_page_was_freed(b.file_page_was_freed),
+#endif
+		access_time(b.access_time)
+	{}
+
 	/** @name General fields
-	None of these bit-fields must be modified without holding
-	buf_page_get_mutex() [buf_block_t::mutex or
-	buf_pool->zip_mutex], since they can be stored in the same
-	machine word.  Some of these fields are additionally protected
-	by buf_pool->mutex. */
+	None of these bit-fields must be modified without holding_mutex()
+	since they can be stored in the same machine word.
+	Some of these fields are additionally protected by buf_pool->mutex. */
 	/* @{ */
 
 	/** Page id. Protected by buf_pool mutex. */
@@ -1462,11 +1431,10 @@ public:
 	/** Count of how manyfold this block is currently bufferfixed. */
 	Atomic_counter<uint32_t>	buf_fix_count;
 
-	/** type of pending I/O operation; also protected by
-	buf_pool->mutex for writes only */
-	buf_io_fix	io_fix;
+	/** type of pending I/O operation; also protected by buf_pool->mutex */
+	std::atomic<buf_io_fix>	io_fix_;
 
-	/** Block state. @see buf_page_in_file */
+	/** Block state. @see in_file() */
 	buf_page_state	state;
 
 	unsigned	flush_type:2;	/*!< if this block is currently being
@@ -1580,7 +1548,7 @@ public:
 	/* @} */
 	/** @name LRU replacement algorithm fields
 	These fields are protected by buf_pool->mutex only (not
-	buf_pool->zip_mutex or buf_block_t::mutex). */
+	holding_mutex()). */
 	/* @{ */
 
 	UT_LIST_NODE_T(buf_page_t) LRU;
@@ -1601,17 +1569,16 @@ public:
 					purposes without holding any
 					mutex or latch */
 	/* @} */
+#ifdef UNIV_DEBUG
+	bool		file_page_was_freed;
+					/*!< this is set when
+					fsp frees a page in buffer pool;
+					protected by holding_mutex() */
+#endif /* UNIV_DEBUG */
 	unsigned	access_time;	/*!< time of first access, or
 					0 if the block was never accessed
 					in the buffer pool. Protected by
 					block mutex */
-# ifdef UNIV_DEBUG
-	ibool		file_page_was_freed;
-					/*!< this is set to TRUE when
-					fsp frees a page in buffer pool;
-					protected by buf_pool->zip_mutex
-					or buf_block_t::mutex. */
-# endif /* UNIV_DEBUG */
 
   void fix() { buf_fix_count++; }
   uint32_t unfix()
@@ -1632,6 +1599,86 @@ public:
   ulint zip_size() const
   {
     return zip.ssize ? (UNIV_ZIP_SIZE_MIN >> 1) << zip.ssize : 0;
+  }
+
+  /** @return the I/O fix status of the block */
+  buf_io_fix io_fix() const { return io_fix_; }
+
+  /** Set the io_fix of the block. */
+  void set_io_fix(buf_io_fix io_fix)
+  { ut_ad(holding_buf_pool_mutex()); io_fix_ = io_fix; }
+
+  /** @return whether this block is associated with a file page */
+  bool in_file() const
+  {
+    switch (state) {
+    case BUF_BLOCK_POOL_WATCH:
+      break;
+    case BUF_BLOCK_ZIP_PAGE:
+    case BUF_BLOCK_ZIP_DIRTY:
+    case BUF_BLOCK_FILE_PAGE:
+      return true;
+    case BUF_BLOCK_NOT_USED:
+    case BUF_BLOCK_READY_FOR_USE:
+    case BUF_BLOCK_MEMORY:
+    case BUF_BLOCK_REMOVE_HASH:
+      return false;
+    }
+
+    ut_ad(!"invalid block state");
+    return false;
+  }
+
+  /** @return the mutex protecting this block */
+  inline BPageMutex* get_mutex();
+  /** @return the mutex protecting this block */
+  BPageMutex* get_mutex() const
+  { return const_cast<buf_page_t*>(this)->get_mutex(); }
+#ifdef UNIV_DEBUG
+  /** @return whether the block mutex is being held */
+  bool holding_mutex() const { return mutex_own(get_mutex()); }
+  /** @return whether the buffer pool mutex is being held */
+  inline bool holding_buf_pool_mutex() const;
+#endif
+
+  /** @return whether this block can be relocated in memory
+  (it is not I/O-fixed or bufferfixed) */
+  bool can_relocate() const
+  {
+    ut_ad(holding_buf_pool_mutex());
+    ut_ad(in_LRU_list);
+    ut_ad(in_file());
+    return !oldest_modification && !buf_fix_count && io_fix() == BUF_IO_NONE;
+  }
+
+  /** @return whether this in_file() block can be evicted,
+  i.e., the state may be changed to BUF_BLOCK_NOT_USED */
+  bool can_evict() const { return can_relocate() && !oldest_modification; }
+
+  /** @return whether this in_file() block can be flushed */
+  bool can_flush() const
+  {
+    ut_ad(in_file());
+    ut_ad(holding_mutex()); /* for reading oldest_modification */
+    if (!oldest_modification || io_fix() != BUF_IO_NONE)
+      return false;
+    ut_ad(in_flush_list);
+    return true;
+  }
+
+  /** @return whether this in_file() block can be flushed */
+  bool can_flush_use_mutex()
+  {
+    ut_ad(in_file());
+    ut_ad(!holding_mutex());
+    if (io_fix() != BUF_IO_NONE)
+      return false;
+    BPageMutex* mutex = get_mutex();
+    mutex_enter(mutex);
+    auto modified = oldest_modification;
+    mutex_exit(mutex);
+    ut_ad(!modified == !in_flush_list);
+    return modified;
   }
 };
 
@@ -1791,11 +1838,8 @@ struct buf_block_t{
 	/* @} */
 # endif
 	BPageMutex	mutex;		/*!< mutex protecting this block:
-					state (also protected by the buffer
-					pool mutex), io_fix, buf_fix_count,
-					and accessed; we introduce this new
-					mutex in InnoDB-5.1 to relieve
-					contention on the buffer pool mutex */
+					state (also protected by
+					buf_pool->mutex), and access_time */
 
   void fix() { page.fix(); }
   uint32_t unfix() { return page.unfix(); }
@@ -2062,8 +2106,8 @@ struct buf_pool_t{
 					the read-ahead algorithms read if
 					invoked */
 	hash_table_t*	page_hash;	/*!< hash table of buf_page_t or
-					buf_block_t file pages,
-					buf_page_in_file() == TRUE,
+					buf_block_t file pages
+					for which in_file() holds,
 					indexed by (space_id, offset).
 					page_hash is protected by an
 					array of mutexes.
@@ -2285,6 +2329,26 @@ Use these instead of accessing buf_pool->mutex directly. */
 	(b)->mutex.exit();				\
 } while (0)
 
+#ifdef UNIV_DEBUG
+inline bool buf_page_t::holding_buf_pool_mutex() const
+{
+  return buf_pool_mutex_own(buf_pool_from_bpage(this));
+}
+#endif
+
+inline BPageMutex* buf_page_t::get_mutex()
+{
+  switch (state) {
+  default:
+    return(&reinterpret_cast<buf_block_t*>(this)->mutex);
+  case BUF_BLOCK_POOL_WATCH:
+    ut_ad(!"invalid block state");
+    return(NULL);
+  case BUF_BLOCK_ZIP_PAGE:
+  case BUF_BLOCK_ZIP_DIRTY:
+    return &buf_pool_from_bpage(this)->zip_mutex;
+  }
+}
 
 /** Get appropriate page_hash_lock. */
 UNIV_INLINE
