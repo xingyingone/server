@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2017, Oracle and/or its affiliates. All Rights Reserved.
-Copyright (c) 2016, 2018, MariaDB Corporation.
+Copyright (c) 2016, 2019, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -804,12 +804,10 @@ void trx_rollback_recovered(bool all)
     trx_t *trx= trx_list.back();
     trx_list.pop_back();
 
-#ifdef UNIV_DEBUG
     ut_ad(trx);
-    trx_mutex_enter(trx);
+    ut_d(trx_mutex_enter(trx));
     ut_ad(trx->is_recovered && trx_state_eq(trx, TRX_STATE_ACTIVE));
-    trx_mutex_exit(trx);
-#endif
+    ut_d(trx_mutex_exit(trx));
 
     if (!srv_is_being_started && !srv_undo_sources && srv_fast_shutdown)
       goto discard;
