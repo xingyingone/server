@@ -5049,7 +5049,7 @@ i_s_innodb_buffer_page_get_info(
 
 	page_info->block_id = pos;
 
-	page_info->page_state = buf_page_get_state(bpage);
+	page_info->page_state = bpage->state();
 
 	/* Only fetch information for buffers that map to a tablespace,
 	that is, buffer page with state BUF_BLOCK_ZIP_PAGE,

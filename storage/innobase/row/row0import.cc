@@ -3490,7 +3490,7 @@ not_encrypted:
 			if ((err = callback(block)) != DB_SUCCESS) {
 				goto func_exit;
 			} else if (!updated) {
-				updated = buf_block_get_state(block)
+				updated = block->page.state()
 					== BUF_BLOCK_FILE_PAGE;
 			}
 
@@ -3671,7 +3671,7 @@ fil_tablespace_iterate(
 	block->page.id = page_id_t(0, 0);
 	block->page.io_fix_ = BUF_IO_NONE;
 	block->page.buf_fix_count = 1;
-	block->page.state = BUF_BLOCK_FILE_PAGE;
+	block->page.state_ = BUF_BLOCK_FILE_PAGE;
 
 	/* Read the first page and determine the page and zip size. */
 

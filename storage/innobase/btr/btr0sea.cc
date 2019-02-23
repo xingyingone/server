@@ -576,7 +576,7 @@ btr_search_update_block_hash_info(btr_search_t* info, buf_block_t* block)
 
 	info->last_hash_succ = FALSE;
 
-	ut_a(buf_block_state_valid(block));
+	ut_a(block->page.state() == BUF_BLOCK_FILE_PAGE);
 	ut_ad(info->magic_n == BTR_SEARCH_MAGIC_N);
 
 	if ((block->n_hash_helps > 0)
@@ -970,18 +970,19 @@ fail:
 		buf_block_dbg_add_level(block, SYNC_TREE_NODE_FROM_HASH);
 	}
 
-	if (buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE) {
-
-		ut_ad(buf_block_get_state(block) == BUF_BLOCK_REMOVE_HASH);
-
+	switch (block->page.state()) {
+	case BUF_BLOCK_REMOVE_HASH:
 		if (!ahi_latch) {
-
 			btr_leaf_page_release(block, latch_mode, mtr);
 		}
 
 		btr_search_failure(info, cursor);
-
-		return(FALSE);
+		return false;
+	default:
+		ut_ad(!"invalid state");
+		/* fall through */
+	case BUF_BLOCK_FILE_PAGE:
+		break;
 	}
 
 	ut_ad(page_rec_is_user_rec(rec));
@@ -1107,7 +1108,7 @@ retry:
 	}
 
 	ut_ad(block->page.buf_fix_count == 0
-	      || buf_block_get_state(block) == BUF_BLOCK_REMOVE_HASH
+	      || block->page.state() == BUF_BLOCK_REMOVE_HASH
 	      || rw_lock_own_flagged(&block->lock,
 				     RW_LOCK_FLAG_X | RW_LOCK_FLAG_S));
 	ut_ad(page_is_leaf(block->frame));
@@ -2018,9 +2019,8 @@ btr_search_hash_table_validate(ulint hash_table_id)
 
 			buf_pool = buf_pool_from_bpage((buf_page_t*) block);
 
-			if (UNIV_LIKELY(buf_block_get_state(block)
+			if (UNIV_LIKELY(block->page.state()
 					== BUF_BLOCK_FILE_PAGE)) {
-
 				/* The space and offset are only valid
 				for file blocks.  It is possible that
 				the block is being freed
@@ -2045,8 +2045,7 @@ btr_search_hash_table_validate(ulint hash_table_id)
 				btr_search_drop_page_hash_index() to
 				remove the block from
 				btr_search_sys->hash_tables[i]. */
-
-				ut_a(buf_block_get_state(block)
+				ut_a(block->page.state()
 				     == BUF_BLOCK_REMOVE_HASH);
 			}
 

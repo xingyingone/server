@@ -61,8 +61,7 @@ buf_read_page_handle_error(
 	buf_page_t*	bpage)	/*!< in: pointer to the block */
 {
 	buf_pool_t*	buf_pool = buf_pool_from_bpage(bpage);
-	const bool	uncompressed = (buf_page_get_state(bpage)
-					== BUF_BLOCK_FILE_PAGE);
+	const bool	uncompressed = bpage->state() == BUF_BLOCK_FILE_PAGE;
 
 	/* First unfix and release lock on the bpage */
 	buf_pool_mutex_enter(buf_pool);
@@ -167,8 +166,7 @@ buf_read_page_low(
 	if (zip_size) {
 		dst = bpage->zip.data;
 	} else {
-		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
-
+		ut_ad(bpage->state() == BUF_BLOCK_FILE_PAGE);
 		dst = ((buf_block_t*) bpage)->frame;
 	}
 
@@ -636,7 +634,7 @@ buf_read_ahead_linear(const page_id_t page_id, ulint zip_size, bool ibuf)
 		return(0);
 	}
 
-	switch (buf_page_get_state(bpage)) {
+	switch (bpage->state()) {
 	case BUF_BLOCK_ZIP_PAGE:
 		frame = bpage->zip.data;
 		break;

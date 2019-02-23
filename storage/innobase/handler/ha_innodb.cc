@@ -18019,8 +18019,7 @@ innodb_buffer_pool_evict_uncompressed(void)
 		     block != NULL; ) {
 			buf_block_t*	prev_block = UT_LIST_GET_PREV(
 				unzip_LRU, block);
-			ut_ad(buf_block_get_state(block)
-			      == BUF_BLOCK_FILE_PAGE);
+			ut_ad(block->page.state() == BUF_BLOCK_FILE_PAGE);
 			ut_ad(block->in_unzip_LRU_list);
 			ut_ad(block->page.in_LRU_list);
 

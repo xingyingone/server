@@ -55,7 +55,7 @@ buf_flush_note_modification(
 	mutex_enter(&block->mutex);
 	ut_ad(!srv_read_only_mode
 	      || fsp_is_system_temporary(block->page.id.space()));
-	ut_ad(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
+	ut_ad(block->page.state() == BUF_BLOCK_FILE_PAGE);
 	ut_ad(block->page.buf_fix_count > 0);
 	ut_ad(block->page.newest_modification <= end_lsn);
 	block->page.newest_modification = end_lsn;

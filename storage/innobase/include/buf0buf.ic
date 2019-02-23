@@ -205,169 +205,6 @@ buf_page_peek_if_too_old(
 }
 
 /*********************************************************************//**
-Gets the state of a block.
-@return state */
-UNIV_INLINE
-enum buf_page_state
-buf_page_get_state(
-/*===============*/
-	const buf_page_t*	bpage)	/*!< in: pointer to the control block */
-{
-	enum buf_page_state	state	= bpage->state;
-
-#ifdef UNIV_DEBUG
-	switch (state) {
-	case BUF_BLOCK_POOL_WATCH:
-	case BUF_BLOCK_ZIP_PAGE:
-	case BUF_BLOCK_ZIP_DIRTY:
-	case BUF_BLOCK_NOT_USED:
-	case BUF_BLOCK_READY_FOR_USE:
-	case BUF_BLOCK_FILE_PAGE:
-	case BUF_BLOCK_MEMORY:
-	case BUF_BLOCK_REMOVE_HASH:
-		break;
-	default:
-		ut_error;
-	}
-#endif /* UNIV_DEBUG */
-
-	return(state);
-}
-/*********************************************************************//**
-Gets the state of a block.
-@return state */
-UNIV_INLINE
-enum buf_page_state
-buf_block_get_state(
-/*================*/
-	const buf_block_t*	block)	/*!< in: pointer to the control block */
-{
-	return(buf_page_get_state(&block->page));
-}
-
-/*********************************************************************//**
-Gets the state name for state of a block
-@return	name or "CORRUPTED" */
-UNIV_INLINE
-const char*
-buf_get_state_name(
-/*===============*/
-	const buf_block_t*	block)	/*!< in: pointer to the control
-					block */
-{
-	enum buf_page_state	state = buf_page_get_state(&block->page);
-
-	switch (state) {
-	case BUF_BLOCK_POOL_WATCH:
-		return (const char *) "BUF_BLOCK_POOL_WATCH";
-	case BUF_BLOCK_ZIP_PAGE:
-		return (const char *) "BUF_BLOCK_ZIP_PAGE";
-	case BUF_BLOCK_ZIP_DIRTY:
-		return (const char *) "BUF_BLOCK_ZIP_DIRTY";
-	case BUF_BLOCK_NOT_USED:
-		return (const char *) "BUF_BLOCK_NOT_USED";
-	case BUF_BLOCK_READY_FOR_USE:
-		return (const char *) "BUF_BLOCK_NOT_USED";
-	case BUF_BLOCK_FILE_PAGE:
-		return (const char *) "BUF_BLOCK_FILE_PAGE";
-	case BUF_BLOCK_MEMORY:
-		return (const char *) "BUF_BLOCK_MEMORY";
-	case BUF_BLOCK_REMOVE_HASH:
-		return (const char *) "BUF_BLOCK_REMOVE_HASH";
-	default:
-		return (const char *) "CORRUPTED";
-	}
-}
-
-/*********************************************************************//**
-Sets the state of a block. */
-UNIV_INLINE
-void
-buf_page_set_state(
-/*===============*/
-	buf_page_t*		bpage,	/*!< in/out: pointer to control block */
-	enum buf_page_state	state)	/*!< in: state */
-{
-#ifdef UNIV_DEBUG
-	enum buf_page_state	old_state	= buf_page_get_state(bpage);
-
-	switch (old_state) {
-	case BUF_BLOCK_POOL_WATCH:
-		ut_error;
-		break;
-	case BUF_BLOCK_ZIP_PAGE:
-		ut_a(state == BUF_BLOCK_ZIP_DIRTY);
-		break;
-	case BUF_BLOCK_ZIP_DIRTY:
-		ut_a(state == BUF_BLOCK_ZIP_PAGE);
-		break;
-	case BUF_BLOCK_NOT_USED:
-		ut_a(state == BUF_BLOCK_READY_FOR_USE);
-		break;
-	case BUF_BLOCK_READY_FOR_USE:
-		ut_a(state == BUF_BLOCK_MEMORY
-		     || state == BUF_BLOCK_FILE_PAGE
-		     || state == BUF_BLOCK_NOT_USED);
-		break;
-	case BUF_BLOCK_MEMORY:
-		ut_a(state == BUF_BLOCK_NOT_USED);
-		break;
-	case BUF_BLOCK_FILE_PAGE:
-		if (!(state == BUF_BLOCK_NOT_USED
-	              || state == BUF_BLOCK_REMOVE_HASH
-		      || state == BUF_BLOCK_FILE_PAGE)) {
-			const char *old_state_name = buf_get_state_name((buf_block_t*)bpage);
-			bpage->state = state;
-
-			fprintf(stderr,
-				"InnoDB: Error: block old state %d (%s) "
-				" new state %d (%s) not correct\n",
-				old_state,
-				old_state_name,
-				state,
-				buf_get_state_name((buf_block_t*)bpage));
-			ut_a(state == BUF_BLOCK_NOT_USED
-				|| state == BUF_BLOCK_REMOVE_HASH
-				|| state == BUF_BLOCK_FILE_PAGE);
-		}
-
-		break;
-	case BUF_BLOCK_REMOVE_HASH:
-		ut_a(state == BUF_BLOCK_MEMORY);
-		break;
-	}
-#endif /* UNIV_DEBUG */
-	bpage->state = state;
-}
-
-/*********************************************************************//**
-Sets the state of a block. */
-UNIV_INLINE
-void
-buf_block_set_state(
-/*================*/
-	buf_block_t*		block,	/*!< in/out: pointer to control block */
-	enum buf_page_state	state)	/*!< in: state */
-{
-	buf_page_set_state(&block->page, state);
-}
-
-/*********************************************************************//**
-Determines if a block should be on unzip_LRU list.
-@return TRUE if block belongs to unzip_LRU */
-UNIV_INLINE
-ibool
-buf_page_belongs_to_unzip_LRU(
-/*==========================*/
-	const buf_page_t*	bpage)	/*!< in: pointer to control block */
-{
-	ut_ad(bpage->in_file());
-
-	return(bpage->zip.data
-	       && buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
-}
-
-/*********************************************************************//**
 Get the flush type of a page.
 @return flush type */
 UNIV_INLINE
@@ -413,7 +250,7 @@ buf_block_set_file_page(
 	buf_block_t*		block,
 	const page_id_t		page_id)
 {
-	buf_block_set_state(block, BUF_BLOCK_FILE_PAGE);
+	block->page.set_state(BUF_BLOCK_FILE_PAGE);
 	block->page.id = page_id;
 }
 
@@ -516,7 +353,7 @@ buf_page_get_block(
 	if (bpage != NULL) {
 		ut_ad(bpage->in_file());
 
-		if (buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE) {
+		if (bpage->state() == BUF_BLOCK_FILE_PAGE) {
 			return((buf_block_t*) bpage);
 		}
 	}
@@ -538,12 +375,11 @@ buf_block_get_frame(
 		return NULL;
 	}
 
-	switch (buf_block_get_state(block)) {
+	switch (block->page.state()) {
 	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE:
 	case BUF_BLOCK_ZIP_DIRTY:
 	case BUF_BLOCK_NOT_USED:
-		ut_error;
 		break;
 	case BUF_BLOCK_FILE_PAGE:
 		ut_a(block->page.buf_fix_count > 0);
@@ -657,7 +493,7 @@ buf_block_free(
 
 	buf_page_mutex_enter(block);
 
-	ut_a(buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE);
+	ut_a(block->page.state() != BUF_BLOCK_FILE_PAGE);
 
 	buf_LRU_block_free_non_file_page(block);
 
@@ -976,7 +812,7 @@ buf_block_hash_get_locked(
 
 	if (block != NULL) {
 
-		ut_ad(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
+		ut_ad(block->page.state() == BUF_BLOCK_FILE_PAGE);
 		ut_ad(!lock || rw_lock_own(*lock, lock_mode));
 
 		return(block);
@@ -1023,7 +859,7 @@ buf_page_release_zip(
 	ut_ad(bpage);
 	ut_a(bpage->buf_fix_count > 0);
 
-	switch (buf_page_get_state(bpage)) {
+	switch (bpage->state()) {
 	case BUF_BLOCK_FILE_PAGE:
 #ifdef UNIV_DEBUG
 	{

@@ -491,16 +491,15 @@ buf_flush_remove(
 #endif
 
 	ut_ad(buf_pool_mutex_own(buf_pool));
-	ut_ad(bpage->holding_mutex());
-	ut_ad(bpage->in_flush_list);
+	ut_ad(buf_flush_list_mutex_own(buf_pool));
 
-	buf_flush_list_mutex_enter(buf_pool);
+	ut_ad(bpage->in_flush_list);
 
 	/* Important that we adjust the hazard pointer before removing
 	the bpage from flush list. */
 	buf_pool->flush_hp.adjust(bpage);
 
-	switch (buf_page_get_state(bpage)) {
+	switch (bpage->state()) {
 	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE:
 		/* Clean compressed pages should not be on the flush list */
@@ -511,7 +510,7 @@ buf_flush_remove(
 		ut_error;
 		return;
 	case BUF_BLOCK_ZIP_DIRTY:
-		buf_page_set_state(bpage, BUF_BLOCK_ZIP_PAGE);
+		bpage->set_state(BUF_BLOCK_ZIP_PAGE);
 		UT_LIST_REMOVE(buf_pool->flush_list, bpage);
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
 		buf_LRU_insert_zip_clean(bpage);
@@ -546,8 +545,6 @@ buf_flush_remove(
 
 		bpage->flush_observer = NULL;
 	}
-
-	buf_flush_list_mutex_exit(buf_pool);
 }
 
 /*******************************************************************//**
@@ -572,12 +569,11 @@ buf_flush_relocate_on_flush_list(
 	buf_pool_t*	buf_pool = buf_pool_from_bpage(bpage);
 
 	ut_ad(buf_pool_mutex_own(buf_pool));
+	ut_ad(buf_flush_list_mutex_own(buf_pool));
 	/* Must reside in the same buffer pool. */
 	ut_ad(buf_pool == buf_pool_from_bpage(dpage));
 
 	ut_ad(bpage->holding_mutex());
-
-	buf_flush_list_mutex_enter(buf_pool);
 
 	/* FIXME: At this point we have both buf_pool and flush_list
 	mutexes. Theoretically removal of a block from flush list is
@@ -635,7 +631,9 @@ void buf_flush_write_complete(buf_page_t* bpage, bool dblwr)
 
 	ut_ad(bpage);
 
+	buf_flush_list_mutex_enter(buf_pool);
 	buf_flush_remove(bpage);
+	buf_flush_list_mutex_exit(buf_pool);
 
 	flush_type = buf_page_get_flush_type(bpage);
 	buf_pool->n_flush[flush_type]--;
@@ -928,7 +926,7 @@ buf_flush_write_block_low(
 		log_write_up_to(bpage->newest_modification, true);
 	}
 
-	switch (buf_page_get_state(bpage)) {
+	switch (bpage->state()) {
 	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE: /* The page should be dirty. */
 	case BUF_BLOCK_NOT_USED:
@@ -1052,9 +1050,7 @@ buf_flush_page(
 
 	ut_ad(bpage->can_flush());
 
-	bool	is_uncompressed;
-
-	is_uncompressed = (buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
+	const bool is_uncompressed = bpage->state() == BUF_BLOCK_FILE_PAGE;
 	ut_ad(is_uncompressed == (block_mutex != &buf_pool->zip_mutex));
 
 	ibool		flush;
@@ -1156,7 +1152,7 @@ buf_flush_page_try(
 	buf_block_t*	block)		/*!< in/out: buffer control block */
 {
 	ut_ad(buf_pool_mutex_own(buf_pool));
-	ut_ad(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
+	ut_ad(block->page.state() == BUF_BLOCK_FILE_PAGE);
 	ut_ad(buf_page_mutex_own(block));
 
 	if (!block->page.can_flush()) {
@@ -3457,7 +3453,7 @@ buf_flush_validate_low(
 		in the flush list waiting to acquire the
 		buf_pool->flush_list_mutex to complete the relocation. */
 		ut_a(bpage->in_file()
-		     || buf_page_get_state(bpage) == BUF_BLOCK_REMOVE_HASH);
+		     || bpage->state() == BUF_BLOCK_REMOVE_HASH);
 		ut_a(om > 0);
 
 		if (UNIV_LIKELY_NULL(buf_pool->flush_rbt)) {

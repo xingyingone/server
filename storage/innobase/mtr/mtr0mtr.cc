@@ -435,7 +435,7 @@ private:
 bool
 mtr_t::is_block_dirtied(const buf_block_t* block)
 {
-	ut_ad(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
+	ut_ad(block->page.state() == BUF_BLOCK_FILE_PAGE);
 	ut_ad(block->page.buf_fix_count > 0);
 
 	/* It is OK to read oldest_modification because no

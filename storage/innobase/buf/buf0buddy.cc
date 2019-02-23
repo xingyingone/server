@@ -389,11 +389,11 @@ buf_buddy_block_free(
 	ut_a(!ut_align_offset(buf, srv_page_size));
 
 	HASH_SEARCH(hash, buf_pool->zip_hash, fold, buf_page_t*, bpage,
-		    ut_ad(buf_page_get_state(bpage) == BUF_BLOCK_MEMORY
+		    ut_ad(bpage->state() == BUF_BLOCK_MEMORY
 			  && bpage->in_zip_hash && !bpage->in_page_hash),
 		    ((buf_block_t*) bpage)->frame == buf);
 	ut_a(bpage);
-	ut_a(buf_page_get_state(bpage) == BUF_BLOCK_MEMORY);
+	ut_a(bpage->state() == BUF_BLOCK_MEMORY);
 	ut_ad(!bpage->in_page_hash);
 	ut_ad(bpage->in_zip_hash);
 	ut_d(bpage->in_zip_hash = FALSE);
@@ -423,9 +423,9 @@ buf_buddy_block_register(
 	const ulint	fold = BUF_POOL_ZIP_FOLD(block);
 	ut_ad(buf_pool_mutex_own(buf_pool));
 	ut_ad(!mutex_own(&buf_pool->zip_mutex));
-	ut_ad(buf_block_get_state(block) == BUF_BLOCK_READY_FOR_USE);
+	ut_ad(block->page.state() == BUF_BLOCK_READY_FOR_USE);
 
-	buf_block_set_state(block, BUF_BLOCK_MEMORY);
+	block->page.set_state(BUF_BLOCK_MEMORY);
 
 	ut_a(block->frame);
 	ut_a(!ut_align_offset(block->frame, srv_page_size));

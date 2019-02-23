@@ -874,7 +874,7 @@ buf_dblwr_check_block(
 /*==================*/
 	const buf_block_t*	block)	/*!< in: block to check */
 {
-	ut_ad(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
+	ut_ad(block->page.state() == BUF_BLOCK_FILE_PAGE);
 
 	if (block->skip_flush_check) {
 		return;
@@ -961,7 +961,7 @@ buf_dblwr_write_block_to_datafile(
 		buf_block_t*	block = reinterpret_cast<buf_block_t*>(
 			const_cast<buf_page_t*>(bpage));
 
-		ut_a(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
+		ut_a(block->page.state() == BUF_BLOCK_FILE_PAGE);
 		buf_dblwr_check_page_lsn(block->frame);
 
 		fil_io(request,
@@ -1046,7 +1046,7 @@ try_again:
 
 		block = (buf_block_t*) buf_dblwr->buf_block_arr[i];
 
-		if (buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE
+		if (block->page.state() != BUF_BLOCK_FILE_PAGE
 		    || block->page.zip.data) {
 			/* No simple validate for compressed
 			pages exists. */
@@ -1174,7 +1174,7 @@ try_again:
 		memcpy(p, frame, zip_size);
 		memset(p + zip_size, 0x0, srv_page_size - zip_size);
 	} else {
-		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
+		ut_a(bpage->state() == BUF_BLOCK_FILE_PAGE);
 
 		UNIV_MEM_ASSERT_RW(frame, srv_page_size);
 		memcpy(p, frame, srv_page_size);
@@ -1230,7 +1230,7 @@ buf_dblwr_write_single_page(
 	ut_a(size > srv_doublewrite_batch_size);
 	n_slots = size - srv_doublewrite_batch_size;
 
-	if (buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE) {
+	if (bpage->state() == BUF_BLOCK_FILE_PAGE) {
 
 		/* Check that the actual page in the buffer pool is
 		not corrupt and the LSN values are sane. */

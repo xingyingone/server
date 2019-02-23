@@ -119,10 +119,7 @@ enum buf_page_state {
 					page that is in the
 					buf_pool->flush_list */
 
-	BUF_BLOCK_NOT_USED,		/*!< is in the free list;
-					must be after the BUF_BLOCK_ZIP_
-					constants for compressed-only pages
-					@see buf_block_state_valid() */
+	BUF_BLOCK_NOT_USED,		/*!< is in the free list */
 	BUF_BLOCK_READY_FOR_USE,	/*!< when buf_LRU_get_free_block
 					returns a block, it is in this state */
 	BUF_BLOCK_FILE_PAGE,		/*!< contains a buffered file page */
@@ -898,59 +895,6 @@ buf_block_dbg_add_level(
 #else /* UNIV_DEBUG */
 # define buf_block_dbg_add_level(block, level) /* nothing */
 #endif /* UNIV_DEBUG */
-/*********************************************************************//**
-Gets the state of a block.
-@return state */
-UNIV_INLINE
-enum buf_page_state
-buf_page_get_state(
-/*===============*/
-	const buf_page_t*	bpage);	/*!< in: pointer to the control
-					block */
-/*********************************************************************//**
-Gets the state name for state of a block
-@return	name or "CORRUPTED" */
-UNIV_INLINE
-const char*
-buf_get_state_name(
-/*===============*/
-	const buf_block_t*	block);	/*!< in: pointer to the control
-					block */
-/*********************************************************************//**
-Gets the state of a block.
-@return state */
-UNIV_INLINE
-enum buf_page_state
-buf_block_get_state(
-/*================*/
-	const buf_block_t*	block)	/*!< in: pointer to the control block */
-	MY_ATTRIBUTE((warn_unused_result));
-/*********************************************************************//**
-Sets the state of a block. */
-UNIV_INLINE
-void
-buf_page_set_state(
-/*===============*/
-	buf_page_t*		bpage,	/*!< in/out: pointer to control block */
-	enum buf_page_state	state);	/*!< in: state */
-/*********************************************************************//**
-Sets the state of a block. */
-UNIV_INLINE
-void
-buf_block_set_state(
-/*================*/
-	buf_block_t*		block,	/*!< in/out: pointer to control block */
-	enum buf_page_state	state);	/*!< in: state */
-
-/*********************************************************************//**
-Determines if a block should be on unzip_LRU list.
-@return TRUE if block belongs to unzip_LRU */
-UNIV_INLINE
-ibool
-buf_page_belongs_to_unzip_LRU(
-/*==========================*/
-	const buf_page_t*	bpage)	/*!< in: pointer to control block */
-	MY_ATTRIBUTE((warn_unused_result));
 
 /*********************************************************************//**
 Get the flush type of a page.
@@ -1386,7 +1330,7 @@ public:
 	buf_page_t(const buf_page_t& b) :
 		id(b.id), hash(b.hash),
 		buf_fix_count(b.buf_fix_count), io_fix_(b.io_fix()),
-		state(b.state),
+		state_(b.state()),
 		flush_type(b.flush_type),
 		buf_pool_index(b.buf_pool_index),
 		zip(b.zip),
@@ -1435,7 +1379,7 @@ public:
 	std::atomic<buf_io_fix>	io_fix_;
 
 	/** Block state. @see in_file() */
-	buf_page_state	state;
+	std::atomic<buf_page_state> state_;
 
 	unsigned	flush_type:2;	/*!< if this block is currently being
 					flushed to disk, this tells the
@@ -1608,10 +1552,20 @@ public:
   void set_io_fix(buf_io_fix io_fix)
   { ut_ad(holding_buf_pool_mutex()); io_fix_ = io_fix; }
 
+  /** @return the state of of the block */
+  buf_page_state state() const { return state_; }
+  /** Set the state the block. */
+  void set_state(buf_page_state state)
+  { ut_ad(holding_buf_pool_mutex()); state_ = state; }
+
+  /** @return whether this block should be in the unzip_LRU list */
+  bool belongs_to_unzip_LRU() const
+  { ut_ad(in_file()); return zip.data && state() == BUF_BLOCK_FILE_PAGE; }
+
   /** @return whether this block is associated with a file page */
   bool in_file() const
   {
-    switch (state) {
+    switch (state()) {
     case BUF_BLOCK_POOL_WATCH:
       break;
     case BUF_BLOCK_ZIP_PAGE:
@@ -1851,14 +1805,6 @@ struct buf_block_t{
   @retval 0 if not compressed */
   ulint zip_size() const { return page.zip_size(); }
 };
-
-/** Check if a buf_block_t object is in a valid state
-@param block buffer block
-@return TRUE if valid */
-#define buf_block_state_valid(block)				\
-(buf_block_get_state(block) >= BUF_BLOCK_NOT_USED		\
- && (buf_block_get_state(block) <= BUF_BLOCK_REMOVE_HASH))
-
 
 /**********************************************************************//**
 Compute the hash fold value for blocks in buf_pool->zip_hash. */
@@ -2338,7 +2284,7 @@ inline bool buf_page_t::holding_buf_pool_mutex() const
 
 inline BPageMutex* buf_page_t::get_mutex()
 {
-  switch (state) {
+  switch (state()) {
   default:
     return(&reinterpret_cast<buf_block_t*>(this)->mutex);
   case BUF_BLOCK_POOL_WATCH:
