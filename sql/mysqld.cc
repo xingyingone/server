@@ -1525,6 +1525,40 @@ static void end_ssl();
 ** Code to end mysqld
 ****************************************************************************/
 
+#ifdef WITH_WSREP
+static my_bool wsrep_wake_on_shutdown(THD *thd, void *)
+{
+  /*
+   * WSREP_TODO:
+   *       this code block may turn out redundant. wsrep->disconnect()
+   *       should terminate slave threads gracefully, and we don't need
+   *       to signal them here.
+   *       The code here makes sure mysqld will not hang during shutdown
+   *       even if wsrep provider has problems in shutting down.
+   */
+  if (WSREP(thd) && wsrep_thd_is_applying(thd))
+  {
+    sql_print_information("closing wsrep system thread");
+    thd->set_killed(KILL_CONNECTION);
+    if(thd->vio_ok())
+      MYSQL_CALLBACK(thread_scheduler, post_kill_notification, (thd));
+    if (thd->mysys_var)
+    {
+      thd->mysys_var->abort=1;
+      mysql_mutex_lock(&thd->mysys_var->mutex);
+      if (thd->mysys_var->current_cond)
+      {
+        mysql_mutex_lock(thd->mysys_var->current_mutex);
+        mysql_cond_broadcast(thd->mysys_var->current_cond);
+        mysql_mutex_unlock(thd->mysys_var->current_mutex);
+      }
+      mysql_mutex_unlock(&thd->mysys_var->mutex);
+    }
+  }
+  return 0;
+}
+#endif
+
 static my_bool kill_all_threads(THD *thd, void *)
 {
   DBUG_PRINT("quit", ("Informing thread %ld that it's time to die",
@@ -1666,7 +1700,6 @@ void kill_mysql(THD *thd)
   break_connect_loop();
 }
 
-
 static void close_connections(void)
 {
   DBUG_ENTER("close_connections");
@@ -1734,7 +1767,9 @@ static void close_connections(void)
 
   if (global_system_variables.log_warnings)
     server_threads.iterate(warn_threads_still_active);
-
+#ifdef WITH_WSREP
+  server_threads.iterate(wsrep_wake_on_shutdown);
+#endif
   end_slave();
 #ifdef WITH_WSREP
   if (wsrep_inited == 1)
