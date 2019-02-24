@@ -1329,7 +1329,8 @@ public:
 	/** Copy constructor */
 	buf_page_t(const buf_page_t& b) :
 		id(b.id), hash(b.hash),
-		buf_fix_count(b.buf_fix_count), io_fix_(b.io_fix()),
+		buf_fix_count(b.buf_fix_count.load(std::memory_order_relaxed)),
+		io_fix_(b.io_fix_.load(std::memory_order_relaxed)),
 		state_(b.state()),
 		flush_type(b.flush_type),
 		buf_pool_index(b.buf_pool_index),
@@ -1373,7 +1374,7 @@ public:
 					buf_pool->zip_hash */
 
 	/** Count of how manyfold this block is currently bufferfixed. */
-	Atomic_counter<uint32_t>	buf_fix_count;
+	std::atomic<uint32_t> buf_fix_count;
 
 	/** type of pending I/O operation; also protected by buf_pool->mutex */
 	std::atomic<buf_io_fix>	io_fix_;
@@ -1524,10 +1525,11 @@ public:
 					in the buffer pool. Protected by
 					block mutex */
 
-  void fix() { buf_fix_count++; }
-  uint32_t unfix()
+  void fix(std::memory_order sync = std::memory_order_acquire)
+  { buf_fix_count.fetch_add(1, sync); }
+  uint32_t unfix(std::memory_order sync = std::memory_order_release)
   {
-    uint32_t count= buf_fix_count--;
+    uint32_t count= buf_fix_count.fetch_sub(1, sync);
     ut_ad(count != 0);
     return count - 1;
   }
@@ -1546,11 +1548,13 @@ public:
   }
 
   /** @return the I/O fix status of the block */
-  buf_io_fix io_fix() const { return io_fix_; }
+  buf_io_fix io_fix(std::memory_order sync = std::memory_order_relaxed) const
+  { return io_fix_.load(sync); }
 
   /** Set the io_fix of the block. */
-  void set_io_fix(buf_io_fix io_fix)
-  { ut_ad(holding_buf_pool_mutex()); io_fix_ = io_fix; }
+  void set_io_fix(buf_io_fix io_fix,
+		  std::memory_order sync = std::memory_order_relaxed)
+  { ut_ad(holding_buf_pool_mutex()); io_fix_.store(io_fix, sync); }
 
   /** @return the state of of the block */
   buf_page_state state() const { return state_; }

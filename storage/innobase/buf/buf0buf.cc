@@ -4448,8 +4448,8 @@ evict_from_pool:
 		bpage = &block->page;
 
 		/* Note: We have already buffer fixed this block. */
-		if (bpage->buf_fix_count > 1
-		    || bpage->io_fix() != BUF_IO_NONE) {
+		if (bpage->buf_fix_count.load(std::memory_order_acquire) > 1
+		    || bpage->io_fix(std::memory_order_relaxed) != BUF_IO_NONE) {
 			/* This condition often occurs when the buffer
 			is not buffer-fixed, but I/O-fixed by
 			buf_page_init_for_read(). */
