@@ -4485,8 +4485,7 @@ evict_from_pool:
 		bpage = &block->page;
 
 		/* Note: We have already buffer fixed this block. */
-		if (bpage->buf_fix_count > 1
-		    || buf_page_get_io_fix(bpage) != BUF_IO_NONE) {
+		if (bpage->buf_fix_count > 1) {
 
 			/* This condition often occurs when the buffer
 			is not buffer-fixed, but I/O-fixed by
@@ -6370,9 +6369,6 @@ assert_s_latched:
 					ut_a(rw_lock_is_locked(&block->lock,
 							       RW_LOCK_X));
 					break;
-
-				case BUF_IO_PIN:
-					break;
 				}
 
 				n_lru++;
@@ -6402,7 +6398,6 @@ assert_s_latched:
 		ut_a(buf_page_get_state(b) == BUF_BLOCK_ZIP_PAGE);
 		switch (buf_page_get_io_fix(b)) {
 		case BUF_IO_NONE:
-		case BUF_IO_PIN:
 			/* All clean blocks should be I/O-unfixed. */
 			break;
 		case BUF_IO_READ:
@@ -6438,12 +6433,7 @@ assert_s_latched:
 		case BUF_BLOCK_ZIP_DIRTY:
 			n_lru++;
 			n_zip++;
-			switch (buf_page_get_io_fix(b)) {
-			case BUF_IO_NONE:
-			case BUF_IO_READ:
-			case BUF_IO_PIN:
-				break;
-			case BUF_IO_WRITE:
+			if (buf_page_get_io_fix(b) == BUF_IO_WRITE) {
 				switch (buf_page_get_flush_type(b)) {
 				case BUF_FLUSH_LRU:
 					n_lru_flush++;
@@ -6457,7 +6447,6 @@ assert_s_latched:
 				default:
 					ut_error;
 				}
-				break;
 			}
 			break;
 		case BUF_BLOCK_FILE_PAGE:

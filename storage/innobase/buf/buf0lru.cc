@@ -394,35 +394,23 @@ buf_flush_yield(
 	buf_pool_t*	buf_pool,	/*!< in/out: buffer pool instance */
 	buf_page_t*	bpage)		/*!< in/out: current page */
 {
-	BPageMutex*	block_mutex;
-
-	ut_ad(buf_pool_mutex_own(buf_pool));
 	ut_ad(buf_page_in_file(bpage));
-
-	block_mutex = buf_page_get_mutex(bpage);
-
-	mutex_enter(block_mutex);
 
 	/* "Fix" the block so that the position cannot be
 	changed after we release the buffer pool and
 	block mutexes. */
-	buf_page_set_sticky(bpage);
+	buf_block_fix(bpage);
 
 	/* Now it is safe to release the buf_pool->mutex. */
 	buf_pool_mutex_exit(buf_pool);
 
-	mutex_exit(block_mutex);
 	/* Try and force a context switch. */
 	os_thread_yield();
 
 	buf_pool_mutex_enter(buf_pool);
 
-	mutex_enter(block_mutex);
-
-	/* "Unfix" the block now that we have both the
-	buffer pool and block mutex again. */
-	buf_page_unset_sticky(bpage);
-	mutex_exit(block_mutex);
+	/* "Unfix" the block now that we the buffer pool mutex again. */
+	buf_block_unfix(bpage);
 }
 
 /******************************************************************//**
@@ -1749,16 +1737,10 @@ func_exit:
 
 		mutex_exit(block_mutex);
 
-		/* Prevent buf_page_get_gen() from
-		decompressing the block while we release
-		buf_pool->mutex and block_mutex. */
-		block_mutex = buf_page_get_mutex(b);
+		/* Prevent buf_page_get_gen() from decompressing the
+		block while we release buf_pool->mutex. */
 
-		mutex_enter(block_mutex);
-
-		buf_page_set_sticky(b);
-
-		mutex_exit(block_mutex);
+		buf_block_fix(b);
 
 		rw_lock_x_unlock(hash_lock);
 	}
@@ -1798,16 +1780,11 @@ func_exit:
 				checksum);
 	}
 
-	buf_pool_mutex_enter(buf_pool);
-
 	if (b != NULL) {
-		mutex_enter(block_mutex);
-
-		buf_page_unset_sticky(b);
-
-		mutex_exit(block_mutex);
+		buf_block_unfix(b);
 	}
 
+	buf_pool_mutex_enter(buf_pool);
 	buf_LRU_block_free_hashed_page((buf_block_t*) bpage);
 
 	return(true);
