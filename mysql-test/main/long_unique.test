@@ -512,4 +512,17 @@ while ($count)
 --eval $insert_data_2
 drop table t1;
 
+--error ER_BLOB_KEY_WITHOUT_LENGTH
+create table t1(a blob , key(a));
+create table t1(a blob);
+--error ER_BLOB_KEY_WITHOUT_LENGTH
+alter table t1 add index(a);
+drop table t1;
+
+--error ER_BLOB_KEY_WITHOUT_LENGTH
+create table t1(a text , key(a));
+create table t1(a varchar(4000));
+alter table t1 add index(a);
+show create table t1;
+drop table t1;
 set @@GLOBAL.max_allowed_packet= @allowed_packet;
