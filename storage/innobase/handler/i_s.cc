@@ -4950,9 +4950,6 @@ i_s_innodb_buffer_page_fill(
 		case BUF_IO_WRITE:
 			state_str = "IO_WRITE";
 			break;
-		case BUF_IO_PIN:
-			state_str = "IO_PIN";
-			break;
 		}
 
 		OK(field_store_string(fields[IDX_BUFFER_PAGE_IO_FIX],
@@ -5083,12 +5080,7 @@ i_s_innodb_buffer_page_get_info(
 
 		page_info->freed_page_clock = bpage->freed_page_clock;
 
-		switch (buf_page_get_io_fix(bpage)) {
-		case BUF_IO_NONE:
-		case BUF_IO_WRITE:
-		case BUF_IO_PIN:
-			break;
-		case BUF_IO_READ:
+		if (buf_page_get_io_fix(bpage) == BUF_IO_READ) {
 			page_info->page_type = I_S_PAGE_TYPE_UNKNOWN;
 			return;
 		}
@@ -5665,9 +5657,6 @@ i_s_innodb_buf_page_lru_fill(
 			break;
 		case BUF_IO_WRITE:
 			state_str = "IO_WRITE";
-			break;
-		case BUF_IO_PIN:
-			state_str = "IO_PIN";
 			break;
 		}
 
