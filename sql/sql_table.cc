@@ -4187,13 +4187,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       hash_fld->offset= record_offset;
       hash_fld->charset= create_info->default_table_charset;
       record_offset+= hash_fld->pack_length;
-      if (key_info->flags & HA_NULL_PART_KEY)
-        null_fields++;
-      else
-      {
-        hash_fld->flags|= NOT_NULL_FLAG;
-        hash_fld->pack_flag&= ~FIELDFLAG_MAYBE_NULL;
-      }
+      key_info->flags|= HA_NULL_PART_KEY;
+      null_fields++;
     }
     if (validate_comment_length(thd, &key->key_create_info.comment,
                                 INDEX_COMMENT_MAXLEN,
@@ -9197,6 +9192,7 @@ bool mysql_alter_table(THD *thd, const LEX_CSTRING *new_db,
                        uint order_num, ORDER *order, bool ignore)
 {
   DBUG_ENTER("mysql_alter_table");
+  bool long_unique_table= false;
 
   /*
     Check if we attempt to alter mysql.slow_log or
@@ -9804,8 +9800,15 @@ do_continue:;
 
   /* Remember that we have not created table in storage engine yet. */
   bool no_ha_table= true;
+  for(uint i= 0; i < key_count; i++)
+    if (key_info[i].algorithm == HA_KEY_ALG_LONG_HASH)
+    {
+      long_unique_table= true;
+      break;
+    }
 
-  if (alter_info->requested_algorithm != Alter_info::ALTER_TABLE_ALGORITHM_COPY)
+  if (alter_info->requested_algorithm != Alter_info::ALTER_TABLE_ALGORITHM_COPY &&
+          !long_unique_table)
   {
     Alter_inplace_info ha_alter_info(create_info, alter_info,
                                      key_info, key_count,

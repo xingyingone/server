@@ -1,0 +1,18 @@
+set default_storage_engine=myisam; #not needed but just for consistency
+#
+# MDEV-371 Unique indexes for blobs for myisam
+#
+--source include/long_unique.inc
+
+--echo myisamchk commands
+
+let datadir=`select @@datadir`;
+create table t1(a blob unique, b int , c blob unique , d text unique , e varchar(3000) unique);
+insert into t1 values(1,2,3,4,5),(2,11,22,33,44),(3111,222,333,444,555),(5611,2222,3333,4444,5555),
+('sachin',341,'fdf','gfgfgfg','hghgr'),('maria',345,'frter','dasd','utyuty'),
+(123456789034567891,353534,53453453453456,64565464564564,45435345345345),
+(123456789034567890,43545,657567567567,78967657567567,657567567567567676);
+
+replace_result $datadir DATADIR;
+exec $MYISAMCHK -d $datadir/test/t1;
+drop table t1;

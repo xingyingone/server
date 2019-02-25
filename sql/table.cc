@@ -824,7 +824,7 @@ static bool create_key_infos(const uchar *strpos, const uchar *frm_image_end,
     }
     if (keyinfo->algorithm == HA_KEY_ALG_LONG_HASH)
     {
-      keyinfo->key_length= HA_HASH_KEY_LENGTH_WITHOUT_NULL;
+      keyinfo->key_length= HA_HASH_KEY_LENGTH_WITH_NULL;
       //Storing key hash
       key_part++;
     }
@@ -1218,11 +1218,7 @@ bool parse_vcol_defs(THD *thd, MEM_ROOT *mem_root, TABLE *table,
       field->vcol_info->expr= hash_item;
       key->user_defined_key_parts= key->ext_key_parts= key->usable_key_parts= 1;
       key->key_part+= parts;
-
-      if (key->flags & HA_NULL_PART_KEY)
-        key->key_length= HA_HASH_KEY_LENGTH_WITH_NULL;
-      else
-        key->key_length= HA_HASH_KEY_LENGTH_WITHOUT_NULL;
+      key->key_length= HA_HASH_KEY_LENGTH_WITH_NULL;
 
       *(vfield_ptr++)= *field_ptr;
     }

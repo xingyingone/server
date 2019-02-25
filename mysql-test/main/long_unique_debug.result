@@ -389,7 +389,7 @@ Printing table->key_info[2].key_part[0] info
 key_part->offset = 33
 key_part->field_name = DB_ROW_HASH_2
 key_part->length = 8
-key_part->null_bit = 0
+key_part->null_bit = 4
 key_part->null_offset = 0
 
 Printing share->key_info[2].key_part[0] info
@@ -428,8 +428,8 @@ table->field[3]->null_bit_pos = 2
 table->field[4]->field_name DB_ROW_HASH_2
 table->field[4]->offset = 33
 table->field[4]->field_length = 8
-table->field[4]->null_pos wrt to record 0 = -1
-table->field[4]->null_bit_pos = 0
+table->field[4]->null_pos wrt to record 0 = 0
+table->field[4]->null_bit_pos = 4
 
 SET debug_dbug="";
 drop table t1;

@@ -6495,9 +6495,8 @@ static int check_duplicate_long_entry_key(TABLE *table, handler *h, uchar *new_r
   int result, error= 0;
   KEY *key_info= table->key_info + key_no;
   hash_field= key_info->key_part->field;
-  DBUG_ASSERT((key_info->flags & HA_NULL_PART_KEY &&
-      key_info->key_length == HA_HASH_KEY_LENGTH_WITH_NULL)
-    || key_info->key_length == HA_HASH_KEY_LENGTH_WITHOUT_NULL);
+  DBUG_ASSERT(key_info->flags & HA_NULL_PART_KEY &&
+      key_info->key_length == HA_HASH_KEY_LENGTH_WITH_NULL);
   uchar ptr[HA_HASH_KEY_LENGTH_WITH_NULL];
 
   if (hash_field->is_real_null())
